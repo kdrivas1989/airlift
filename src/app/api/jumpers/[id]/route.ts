@@ -1,0 +1,71 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getDb } from "@/lib/db";
+
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const db = getDb();
+
+    const jumper = db.prepare("SELECT * FROM jumpers WHERE id = ?").get(id) as Record<string, unknown> | undefined;
+    if (!jumper) {
+      return NextResponse.json({ error: "Jumper not found" }, { status: 404 });
+    }
+
+    const waivers = db.prepare(
+      "SELECT id, is_minor, guardian_name, signed_at FROM waivers WHERE jumper_id = ? ORDER BY signed_at DESC"
+    ).all(id);
+
+    const jumpLog = db.prepare(`
+      SELECT me.load_id, l.load_number, me.jump_type, me.altitude, l.created_at as date
+      FROM manifest_entries me
+      JOIN loads l ON l.id = me.load_id
+      WHERE me.jumper_id = ?
+      ORDER BY l.created_at DESC
+    `).all(id);
+
+    return NextResponse.json({ jumper, waivers, jumpLog });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to fetch jumper";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const body = await request.json();
+    const db = getDb();
+
+    const jumper = db.prepare("SELECT * FROM jumpers WHERE id = ?").get(id);
+    if (!jumper) {
+      return NextResponse.json({ error: "Jumper not found" }, { status: 404 });
+    }
+
+    const fields: string[] = [];
+    const values: unknown[] = [];
+
+    if (body.weight !== undefined) { fields.push("weight = ?"); values.push(body.weight); }
+    if (body.reservePackDate !== undefined) { fields.push("reserve_pack_date = ?"); values.push(body.reservePackDate); }
+    if (body.phone !== undefined) { fields.push("phone = ?"); values.push(body.phone); }
+    if (body.licenseLevel !== undefined) { fields.push("license_level = ?"); values.push(body.licenseLevel); }
+    if (body.uspaNumber !== undefined) { fields.push("uspa_number = ?"); values.push(body.uspaNumber); }
+
+    if (fields.length > 0) {
+      fields.push("updated_at = datetime('now')");
+      values.push(id);
+      db.prepare(`UPDATE jumpers SET ${fields.join(", ")} WHERE id = ?`).run(...values);
+    }
+
+    const updated = db.prepare("SELECT * FROM jumpers WHERE id = ?").get(id);
+    return NextResponse.json({ jumper: updated });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to update jumper";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}

@@ -1,0 +1,42 @@
+import { NextRequest, NextResponse } from "next/server";
+import { login, logout, getSession } from "@/lib/auth";
+
+export async function GET() {
+  try {
+    const user = await getSession();
+    if (!user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+    return NextResponse.json(user);
+  } catch {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const { email, password } = await request.json();
+    if (!email || !password) {
+      return NextResponse.json({ error: "Email and password required" }, { status: 400 });
+    }
+
+    const user = await login(email, password);
+    if (!user) {
+      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    }
+
+    return NextResponse.json(user);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Login failed";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function DELETE() {
+  try {
+    await logout();
+    return NextResponse.json({ ok: true });
+  } catch {
+    return NextResponse.json({ ok: true });
+  }
+}
