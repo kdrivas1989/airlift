@@ -53,6 +53,7 @@ export async function GET(request: NextRequest) {
         defaultAltitude: load.default_altitude,
         status: load.status,
         createdAt: load.created_at,
+        departureTime: load.departure_time || null,
         slotsUsed: manifest.length,
         slotsAvailable: (load.slot_count as number) - manifest.length,
         currentWeight,
@@ -80,7 +81,7 @@ export async function POST(request: NextRequest) {
   try {
     const user = await requireAuth();
     const body = await request.json();
-    const { aircraftId, fuelWeight, defaultAltitude } = body;
+    const { aircraftId, fuelWeight, defaultAltitude, departureMinutes } = body;
 
     if (!aircraftId) return NextResponse.json({ error: "Aircraft required" }, { status: 400 });
 
@@ -95,10 +96,17 @@ export async function POST(request: NextRequest) {
       "SELECT COUNT(*) as count FROM loads WHERE date(created_at) = date('now')"
     ).get() as { count: number };
 
+    // Calculate departure time from minutes
+    let departureTime = null;
+    if (departureMinutes && departureMinutes > 0) {
+      const dep = new Date(Date.now() + departureMinutes * 60 * 1000);
+      departureTime = dep.toISOString();
+    }
+
     const result = db.prepare(`
-      INSERT INTO loads (load_number, aircraft_id, fuel_weight, default_altitude, created_by)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(todayCount.count + 1, aircraftId, fuelWeight ?? 500, defaultAltitude || 13500, user.staffId);
+      INSERT INTO loads (load_number, aircraft_id, fuel_weight, default_altitude, created_by, departure_time)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(todayCount.count + 1, aircraftId, fuelWeight ?? 500, defaultAltitude || 13500, user.staffId, departureTime);
 
     const load = db.prepare("SELECT * FROM loads WHERE id = ?").get(result.lastInsertRowid);
     return NextResponse.json({ load }, { status: 201 });

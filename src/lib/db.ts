@@ -178,6 +178,13 @@ function migrate(db: Database.Database) {
       ALTER TABLE jumpers ADD COLUMN jump_block_remaining INTEGER NOT NULL DEFAULT 0;
     `);
   }
+
+  // Add departure_time to loads
+  const loadCols = db.prepare("PRAGMA table_info(loads)").all() as Array<{ name: string }>;
+  const loadColNames = loadCols.map(c => c.name);
+  if (!loadColNames.includes("departure_time")) {
+    db.exec("ALTER TABLE loads ADD COLUMN departure_time TEXT");
+  }
 }
 
 function seed(db: Database.Database) {

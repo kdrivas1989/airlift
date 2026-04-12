@@ -21,6 +21,11 @@ export async function PATCH(
 
     if (body.fuelWeight !== undefined) { fields.push("fuel_weight = ?"); values.push(body.fuelWeight); }
     if (body.defaultAltitude !== undefined) { fields.push("default_altitude = ?"); values.push(body.defaultAltitude); }
+    if (body.departureMinutes !== undefined) {
+      const dep = new Date(Date.now() + body.departureMinutes * 60 * 1000);
+      fields.push("departure_time = ?"); values.push(dep.toISOString());
+    }
+    if (body.departureTime !== undefined) { fields.push("departure_time = ?"); values.push(body.departureTime); }
 
     if (fields.length > 0) {
       values.push(id);

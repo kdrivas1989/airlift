@@ -33,6 +33,7 @@ interface LoadData {
   currentWeight: number;
   maxWeight: number;
   manifest: ManifestEntry[];
+  departureTime: string | null;
 }
 
 interface CheckedInJumper {
@@ -147,6 +148,7 @@ export default function ManifestDashboard() {
         aircraftId: Number(form.get("aircraftId")),
         fuelWeight: Number(form.get("fuelWeight")) || 0,
         defaultAltitude: Number(form.get("defaultAltitude")) || 13500,
+        departureMinutes: Number(form.get("departureMinutes")) || 0,
       }),
     });
     const data = await res.json();
@@ -282,6 +284,9 @@ export default function ManifestDashboard() {
                 <input name="fuelWeight" type="number" min="0" defaultValue="500" placeholder="Fuel lbs" className="w-1/2 border rounded px-2 py-1 text-sm" />
                 <input name="defaultAltitude" type="number" min="3000" defaultValue="13500" placeholder="Alt ft" className="w-1/2 border rounded px-2 py-1 text-sm" />
               </div>
+              <div>
+                <input name="departureMinutes" type="number" min="0" defaultValue="20" placeholder="Min to departure" className="w-full border rounded px-2 py-1 text-sm" />
+              </div>
               <div className="flex gap-1">
                 <button type="submit" className="bg-blue-600 text-white text-xs px-3 py-1 rounded hover:bg-blue-700">Create</button>
                 <button type="button" onClick={() => setShowCreate(false)} className="text-xs px-3 py-1 rounded border hover:bg-gray-50">Cancel</button>
@@ -322,6 +327,7 @@ export default function ManifestDashboard() {
                   {load.slotsAvailable === 0 && <span className="text-red-600 font-bold ml-1">FULL</span>}
                 </div>
                 <WeightGauge current={load.currentWeight} max={load.maxWeight} compact />
+                {load.departureTime && <DepartureCountdown departureTime={load.departureTime} compact />}
               </button>
             ))}
             {loads.length === 0 && (
@@ -347,6 +353,12 @@ export default function ManifestDashboard() {
                     &nbsp;&middot;&nbsp;{selectedLoad.slotsUsed}/{selectedLoad.aircraft.slotCount} slots
                     &nbsp;&middot;&nbsp;{selectedLoad.currentWeight.toLocaleString()}/{selectedLoad.maxWeight.toLocaleString()} lbs
                   </p>
+                  {selectedLoad.departureTime && (
+                    <DepartureCountdown departureTime={selectedLoad.departureTime} />
+                  )}
+                  {editable && !selectedLoad.departureTime && (
+                    <SetDepartureButton loadId={selectedLoad.id} onSet={() => fetchLoads()} />
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`px-2 py-1 rounded text-xs font-medium ${
@@ -516,6 +528,74 @@ export default function ManifestDashboard() {
           onAdd={addBalance}
         />
       )}
+    </div>
+  );
+}
+
+function DepartureCountdown({ departureTime, compact }: { departureTime: string; compact?: boolean }) {
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const depMs = new Date(departureTime).getTime();
+  const diffMs = depMs - now;
+  const isPast = diffMs <= 0;
+
+  const absDiff = Math.abs(diffMs);
+  const mins = Math.floor(absDiff / 60000);
+  const secs = Math.floor((absDiff % 60000) / 1000);
+
+  const depDate = new Date(departureTime);
+  const timeStr = depDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+  if (compact) {
+    return (
+      <div className={`text-[10px] mt-1 font-mono ${isPast ? "text-red-600 font-bold" : mins <= 5 ? "text-orange-600 font-bold" : "text-gray-600"}`}>
+        {isPast ? `LATE ${mins}:${secs.toString().padStart(2, "0")}` : `T-${mins}:${secs.toString().padStart(2, "0")}`} ({timeStr})
+      </div>
+    );
+  }
+
+  return (
+    <div className={`mt-1 flex items-center gap-2 text-sm ${isPast ? "text-red-600" : mins <= 5 ? "text-orange-600" : "text-gray-700"}`}>
+      <span className="font-mono font-bold text-lg">
+        {isPast ? `+${mins}:${secs.toString().padStart(2, "0")}` : `${mins}:${secs.toString().padStart(2, "0")}`}
+      </span>
+      <span className="text-xs">
+        {isPast ? "past departure" : "to departure"} &middot; {timeStr}
+      </span>
+    </div>
+  );
+}
+
+function SetDepartureButton({ loadId, onSet }: { loadId: number; onSet: () => void }) {
+  const [mins, setMins] = useState("20");
+
+  async function set() {
+    const m = Number(mins);
+    if (!m || m <= 0) return;
+    await fetch(`/api/loads/${loadId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ departureMinutes: m }),
+    });
+    onSet();
+  }
+
+  return (
+    <div className="flex items-center gap-1 mt-1">
+      <input
+        type="number"
+        min="1"
+        value={mins}
+        onChange={(e) => setMins(e.target.value)}
+        className="w-14 border rounded px-1 py-0.5 text-xs text-center"
+      />
+      <span className="text-xs text-gray-500">min</span>
+      <button onClick={set} className="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-0.5 rounded">Set</button>
     </div>
   );
 }

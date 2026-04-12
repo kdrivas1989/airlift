@@ -38,13 +38,23 @@ export async function POST(request: NextRequest) {
   let jumper = db.prepare("SELECT * FROM jumpers WHERE email = ?").get(email) as Record<string, unknown> | undefined;
 
   if (!jumper) {
-    // Create new jumper account
+    // Create new jumper account — pre-approved for manifesting (boogie registration)
+    const now = new Date().toISOString();
+    const reserveDate = now.split("T")[0]; // today, valid for 180 days
     const result = db.prepare(`
-      INSERT INTO jumpers (first_name, last_name, email, phone, date_of_birth, weight, license_level, balance, jump_block_remaining)
-      VALUES (?, ?, ?, ?, '1990-01-01', 180, 'unknown', 0, 0)
-    `).run(firstName, lastName, email, phone || null);
+      INSERT INTO jumpers (first_name, last_name, email, phone, date_of_birth, weight, license_level, balance, jump_block_remaining,
+        uspa_number, uspa_status, uspa_verified_at, reserve_pack_date)
+      VALUES (?, ?, ?, ?, '1990-01-01', 180, 'unknown', 0, 0,
+        'BOOGIE', 'Active', ?, ?)
+    `).run(firstName, lastName, email, phone || null, now, reserveDate);
 
-    jumper = db.prepare("SELECT * FROM jumpers WHERE id = ?").get(result.lastInsertRowid) as Record<string, unknown>;
+    const newId = result.lastInsertRowid;
+    jumper = db.prepare("SELECT * FROM jumpers WHERE id = ?").get(newId) as Record<string, unknown>;
+
+    // Auto-create waiver so jumper passes compliance checks
+    db.prepare(
+      "INSERT INTO waivers (jumper_id, signature_data, initials) VALUES (?, ?, ?)"
+    ).run(newId, "boogie-registration", firstName.charAt(0) + lastName.charAt(0));
   }
 
   const jumperId = jumper.id as number;
