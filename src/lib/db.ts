@@ -199,15 +199,22 @@ function migrate(db: Database.Database) {
     for (const s of existingStaff) {
       const existing = db.prepare("SELECT id FROM jumpers WHERE email = ?").get(s.email) as { id: number } | undefined;
       if (existing) {
-        db.prepare("UPDATE jumpers SET person_type = 'customer,staff', staff_password_hash = ?, staff_role = ?, staff_active = ? WHERE id = ?")
-          .run(s.password_hash, s.role, s.active, existing.id);
+        db.prepare("UPDATE jumpers SET person_type = 'customer,staff', staff_password_hash = ?, staff_role = ?, staff_active = ?, password_hash = ? WHERE id = ?")
+          .run(s.password_hash, s.role, s.active, s.password_hash, existing.id);
       } else {
         db.prepare(`
-          INSERT INTO jumpers (first_name, last_name, email, date_of_birth, weight, license_level, person_type, staff_password_hash, staff_role, staff_active)
-          VALUES (?, ?, ?, '1990-01-01', 180, 'unknown', 'staff', ?, ?, ?)
-        `).run(s.name, '', s.email, s.password_hash, s.role, s.active);
+          INSERT INTO jumpers (first_name, last_name, email, date_of_birth, weight, license_level, person_type, staff_password_hash, staff_role, staff_active, password_hash)
+          VALUES (?, ?, ?, '1990-01-01', 180, 'unknown', 'staff', ?, ?, ?, ?)
+        `).run(s.name, '', s.email, s.password_hash, s.role, s.active, s.password_hash);
       }
     }
+  }
+
+  // Add password_hash for everyone's login
+  if (!colNames.includes("password_hash")) {
+    db.exec("ALTER TABLE jumpers ADD COLUMN password_hash TEXT");
+    // Copy staff passwords to password_hash
+    db.exec("UPDATE jumpers SET password_hash = staff_password_hash WHERE staff_password_hash IS NOT NULL AND password_hash IS NULL");
   }
 }
 

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { hashPassword } from "@/lib/auth";
+import crypto from "crypto";
 
 /**
  * External registration endpoint for Alter Ego Adventures integration.
@@ -36,17 +38,22 @@ export async function POST(request: NextRequest) {
 
   // Check if jumper already exists by email
   let jumper = db.prepare("SELECT * FROM jumpers WHERE email = ?").get(email) as Record<string, unknown> | undefined;
+  let generatedPassword: string | undefined;
 
   if (!jumper) {
     // Create new jumper account — pre-approved for manifesting (boogie registration)
     const now = new Date().toISOString();
     const reserveDate = now.split("T")[0]; // today, valid for 180 days
+    // Generate a random password for the jumper's login
+    generatedPassword = crypto.randomBytes(4).toString("hex"); // 8 char hex
+    const pwHash = hashPassword(generatedPassword);
+
     const result = db.prepare(`
       INSERT INTO jumpers (first_name, last_name, email, phone, date_of_birth, weight, license_level, balance, jump_block_remaining,
-        uspa_number, uspa_status, uspa_verified_at, reserve_pack_date)
+        uspa_number, uspa_status, uspa_verified_at, reserve_pack_date, password_hash)
       VALUES (?, ?, ?, ?, '1990-01-01', 180, 'unknown', 0, 0,
-        'BOOGIE', 'Active', ?, ?)
-    `).run(firstName, lastName, email, phone || null, now, reserveDate);
+        'BOOGIE', 'Active', ?, ?, ?)
+    `).run(firstName, lastName, email, phone || null, now, reserveDate, pwHash);
 
     const newId = result.lastInsertRowid;
     jumper = db.prepare("SELECT * FROM jumpers WHERE id = ?").get(newId) as Record<string, unknown>;
@@ -90,5 +97,6 @@ export async function POST(request: NextRequest) {
     balance: updated.balance,
     jumpBlockRemaining: updated.jump_block_remaining,
     created: !jumper,
+    ...(generatedPassword ? { temporaryPassword: generatedPassword } : {}),
   }, { status: 201 });
 }

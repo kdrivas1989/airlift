@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { hashPassword } from "@/lib/auth";
 import { lookupMember, verifyAndUpdateJumper } from "@/lib/uspa";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { firstName, lastName, email, phone, dateOfBirth, weight, uspaNumber, licenseLevel, reservePackDate } = body;
+    const { firstName, lastName, email, phone, dateOfBirth, weight, uspaNumber, licenseLevel, reservePackDate, password } = body;
 
     if (!firstName || !lastName || !email || !dateOfBirth || !weight || !licenseLevel) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -26,22 +27,28 @@ export async function POST(request: NextRequest) {
 
     if (existing) {
       // Update existing jumper
-      db.prepare(`
-        UPDATE jumpers SET
+      const updates = [firstName, lastName, phone || null, dateOfBirth, weight, uspaNumber || null, licenseLevel, reservePackDate || null];
+      let updateSql = `UPDATE jumpers SET
           first_name = ?, last_name = ?, phone = ?, date_of_birth = ?,
           weight = ?, uspa_number = ?, license_level = ?, reserve_pack_date = ?,
-          updated_at = datetime('now')
-        WHERE id = ?
-      `).run(firstName, lastName, phone || null, dateOfBirth, weight, uspaNumber || null, licenseLevel, reservePackDate || null, existing.id);
+          updated_at = datetime('now')`;
+      if (password) {
+        updateSql += ", password_hash = ?";
+        updates.push(hashPassword(password));
+      }
+      updateSql += " WHERE id = ?";
+      updates.push(String(existing.id));
+      db.prepare(updateSql).run(...updates);
 
       jumperId = existing.id;
       isReturning = true;
     } else {
       // Create new jumper
+      const pwHash = password ? hashPassword(password) : null;
       const result = db.prepare(`
-        INSERT INTO jumpers (first_name, last_name, email, phone, date_of_birth, weight, uspa_number, license_level, reserve_pack_date)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(firstName, lastName, email, phone || null, dateOfBirth, weight, uspaNumber || null, licenseLevel, reservePackDate || null);
+        INSERT INTO jumpers (first_name, last_name, email, phone, date_of_birth, weight, uspa_number, license_level, reserve_pack_date, password_hash)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(firstName, lastName, email, phone || null, dateOfBirth, weight, uspaNumber || null, licenseLevel, reservePackDate || null, pwHash);
 
       jumperId = result.lastInsertRowid as number;
     }
