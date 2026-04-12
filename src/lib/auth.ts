@@ -10,9 +10,16 @@ interface StaffRow {
   id: number;
   email: string;
   password_hash: string;
-  name: string;
-  role: string;
-  active: number;
+  first_name: string;
+  last_name: string;
+  staff_password_hash: string | null;
+  staff_role: string;
+  staff_active: number;
+  person_type: string;
+  // Legacy staff table fields
+  name?: string;
+  role?: string;
+  active?: number;
 }
 
 interface SessionRow {
@@ -30,6 +37,17 @@ export interface AuthUser {
 
 export async function login(email: string, password: string): Promise<AuthUser | null> {
   const db = getDb();
+
+  // Try jumpers table first (new unified model)
+  const jumper = db.prepare(
+    "SELECT * FROM jumpers WHERE email = ? AND person_type LIKE '%staff%' AND staff_active = 1"
+  ).get(email) as StaffRow | undefined;
+
+  if (jumper && jumper.staff_password_hash && compareSync(password, jumper.staff_password_hash)) {
+    return createSession(db, jumper.id, email, `${jumper.first_name} ${jumper.last_name}`.trim(), jumper.staff_role || "operator");
+  }
+
+  // Fallback to legacy staff table
   const staff = db.prepare(
     "SELECT * FROM staff WHERE email = ? AND active = 1"
   ).get(email) as StaffRow | undefined;
@@ -37,14 +55,14 @@ export async function login(email: string, password: string): Promise<AuthUser |
   if (!staff) return null;
   if (!compareSync(password, staff.password_hash)) return null;
 
+  return createSession(db, staff.id, staff.email, staff.name || "", (staff.role || "operator") as string);
+}
+
+async function createSession(db: ReturnType<typeof getDb>, userId: number, email: string, name: string, role: string): Promise<AuthUser> {
   const sessionId = crypto.randomUUID();
   const expiresAt = new Date(Date.now() + SESSION_DURATION_MS).toISOString();
 
-  db.prepare("INSERT INTO sessions (id, staff_id, expires_at) VALUES (?, ?, ?)").run(
-    sessionId,
-    staff.id,
-    expiresAt
-  );
+  db.prepare("INSERT INTO sessions (id, staff_id, expires_at) VALUES (?, ?, ?)").run(sessionId, userId, expiresAt);
 
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE, sessionId, {
@@ -55,12 +73,7 @@ export async function login(email: string, password: string): Promise<AuthUser |
     maxAge: SESSION_DURATION_MS / 1000,
   });
 
-  return {
-    staffId: staff.id,
-    email: staff.email,
-    name: staff.name,
-    role: staff.role as "admin" | "operator",
-  };
+  return { staffId: userId, email, name, role: role as "admin" | "operator" };
 }
 
 export async function logout(): Promise<void> {
@@ -85,6 +98,21 @@ export async function getSession(): Promise<AuthUser | null> {
 
   if (!session) return null;
 
+  // Try jumpers table first
+  const jumper = db.prepare(
+    "SELECT * FROM jumpers WHERE id = ? AND person_type LIKE '%staff%' AND staff_active = 1"
+  ).get(session.staff_id) as StaffRow | undefined;
+
+  if (jumper) {
+    return {
+      staffId: jumper.id,
+      email: jumper.email,
+      name: `${jumper.first_name} ${jumper.last_name}`.trim(),
+      role: (jumper.staff_role || "operator") as "admin" | "operator",
+    };
+  }
+
+  // Fallback to legacy staff table
   const staff = db.prepare(
     "SELECT * FROM staff WHERE id = ? AND active = 1"
   ).get(session.staff_id) as StaffRow | undefined;
@@ -94,8 +122,8 @@ export async function getSession(): Promise<AuthUser | null> {
   return {
     staffId: staff.id,
     email: staff.email,
-    name: staff.name,
-    role: staff.role as "admin" | "operator",
+    name: staff.name || "",
+    role: (staff.role || "operator") as "admin" | "operator",
   };
 }
 

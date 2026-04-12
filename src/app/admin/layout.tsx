@@ -13,9 +13,8 @@ interface AuthUser {
 const NAV_ITEMS = [
   { href: "/manifest", label: "Dashboard" },
   { href: "/admin/aircraft", label: "Aircraft" },
-  { href: "/admin/jumpers", label: "Jumpers" },
+  { href: "/admin/people", label: "People" },
   { href: "/admin/pricing", label: "Pricing" },
-  { href: "/admin/staff", label: "Staff" },
   { href: "/admin/reports", label: "Reports" },
   { href: "/admin/settings", label: "Settings" },
 ];

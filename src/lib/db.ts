@@ -185,6 +185,30 @@ function migrate(db: Database.Database) {
   if (!loadColNames.includes("departure_time")) {
     db.exec("ALTER TABLE loads ADD COLUMN departure_time TEXT");
   }
+
+  // Add person_type to jumpers (customer, staff, ground — comma-separated)
+  if (!colNames.includes("person_type")) {
+    db.exec(`
+      ALTER TABLE jumpers ADD COLUMN person_type TEXT NOT NULL DEFAULT 'customer';
+      ALTER TABLE jumpers ADD COLUMN staff_password_hash TEXT;
+      ALTER TABLE jumpers ADD COLUMN staff_role TEXT;
+      ALTER TABLE jumpers ADD COLUMN staff_active INTEGER NOT NULL DEFAULT 1;
+    `);
+    // Migrate existing staff into jumpers table
+    const existingStaff = db.prepare("SELECT * FROM staff").all() as Array<Record<string, unknown>>;
+    for (const s of existingStaff) {
+      const existing = db.prepare("SELECT id FROM jumpers WHERE email = ?").get(s.email) as { id: number } | undefined;
+      if (existing) {
+        db.prepare("UPDATE jumpers SET person_type = 'customer,staff', staff_password_hash = ?, staff_role = ?, staff_active = ? WHERE id = ?")
+          .run(s.password_hash, s.role, s.active, existing.id);
+      } else {
+        db.prepare(`
+          INSERT INTO jumpers (first_name, last_name, email, date_of_birth, weight, license_level, person_type, staff_password_hash, staff_role, staff_active)
+          VALUES (?, ?, ?, '1990-01-01', 180, 'unknown', 'staff', ?, ?, ?)
+        `).run(s.name, '', s.email, s.password_hash, s.role, s.active);
+      }
+    }
+  }
 }
 
 function seed(db: Database.Database) {

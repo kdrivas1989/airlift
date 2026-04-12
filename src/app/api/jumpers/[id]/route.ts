@@ -55,6 +55,13 @@ export async function PATCH(
     if (body.phone !== undefined) { fields.push("phone = ?"); values.push(body.phone); }
     if (body.licenseLevel !== undefined) { fields.push("license_level = ?"); values.push(body.licenseLevel); }
     if (body.uspaNumber !== undefined) { fields.push("uspa_number = ?"); values.push(body.uspaNumber); }
+    if (body.personType !== undefined) { fields.push("person_type = ?"); values.push(body.personType); }
+    if (body.staffRole !== undefined) { fields.push("staff_role = ?"); values.push(body.staffRole); }
+    if (body.staffActive !== undefined) { fields.push("staff_active = ?"); values.push(body.staffActive ? 1 : 0); }
+    if (body.staffPassword) {
+      const { hashSync } = await import("bcryptjs");
+      fields.push("staff_password_hash = ?"); values.push(hashSync(body.staffPassword, 10));
+    }
 
     if (fields.length > 0) {
       fields.push("updated_at = datetime('now')");
