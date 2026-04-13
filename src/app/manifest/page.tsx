@@ -356,8 +356,8 @@ export default function ManifestDashboard() {
                   {selectedLoad.departureTime && (
                     <DepartureCountdown departureTime={selectedLoad.departureTime} />
                   )}
-                  {editable && !selectedLoad.departureTime && (
-                    <SetDepartureButton loadId={selectedLoad.id} onSet={() => fetchLoads()} />
+                  {editable && (
+                    <SetDepartureButton loadId={selectedLoad.id} onSet={() => fetchLoads()} hasExisting={!!selectedLoad.departureTime} />
                   )}
                 </div>
                 <div className="flex items-center gap-2">
@@ -462,12 +462,12 @@ export default function ManifestDashboard() {
               return (
                 <div
                   key={j.id}
-                  draggable={j.canManifest && !onLoad && editable}
-                  onDragStart={(e) => onDragStart(e, j.id)}
-                  className={`border-b px-3 py-2 flex items-center gap-2 text-sm ${
+                  draggable={j.canManifest && !onLoad}
+                  onDragStart={(e) => { e.dataTransfer.setData("jumperId", String(j.id)); e.dataTransfer.effectAllowed = "move"; }}
+                  className={`border-b px-3 py-2 flex items-center gap-2 text-sm select-none ${
                     onLoad
                       ? "bg-gray-100 opacity-50"
-                      : j.canManifest && editable
+                      : j.canManifest
                       ? "bg-white hover:bg-blue-50 cursor-grab active:cursor-grabbing"
                       : "bg-white"
                   }`}
@@ -499,10 +499,11 @@ export default function ManifestDashboard() {
                       {j.balance === 0 && j.jumpBlockRemaining === 0 && <div className="text-gray-400">$0</div>}
                     </button>
                   </div>
-                  {editable && j.canManifest && !onLoad && selectedLoadId && (
+                  {j.canManifest && !onLoad && selectedLoadId && editable && (
                     <button
-                      onClick={() => addJumperToLoad(j.id, selectedLoadId)}
-                      className="text-blue-600 hover:text-blue-800 text-lg font-bold shrink-0"
+                      onClick={(e) => { e.stopPropagation(); addJumperToLoad(j.id, selectedLoadId); }}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      className="text-blue-600 hover:text-blue-800 text-lg font-bold shrink-0 px-1"
                       title="Add to selected load"
                     >
                       +
@@ -571,8 +572,9 @@ function DepartureCountdown({ departureTime, compact }: { departureTime: string;
   );
 }
 
-function SetDepartureButton({ loadId, onSet }: { loadId: number; onSet: () => void }) {
+function SetDepartureButton({ loadId, onSet, hasExisting }: { loadId: number; onSet: () => void; hasExisting?: boolean }) {
   const [mins, setMins] = useState("20");
+  const [show, setShow] = useState(!hasExisting);
 
   async function set() {
     const m = Number(mins);
@@ -582,7 +584,16 @@ function SetDepartureButton({ loadId, onSet }: { loadId: number; onSet: () => vo
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ departureMinutes: m }),
     });
+    setShow(false);
     onSet();
+  }
+
+  if (!show) {
+    return (
+      <button onClick={() => setShow(true)} className="text-[10px] text-blue-600 hover:underline mt-0.5">
+        Update departure
+      </button>
+    );
   }
 
   return (
@@ -593,9 +604,11 @@ function SetDepartureButton({ loadId, onSet }: { loadId: number; onSet: () => vo
         value={mins}
         onChange={(e) => setMins(e.target.value)}
         className="w-14 border rounded px-1 py-0.5 text-xs text-center"
+        autoFocus
       />
       <span className="text-xs text-gray-500">min</span>
       <button onClick={set} className="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-0.5 rounded">Set</button>
+      {hasExisting && <button onClick={() => setShow(false)} className="text-xs text-gray-400 hover:text-gray-600">&times;</button>}
     </div>
   );
 }
