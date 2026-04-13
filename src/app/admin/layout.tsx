@@ -13,7 +13,7 @@ interface AuthUser {
 const NAV_ITEMS = [
   { href: "/manifest", label: "Dashboard" },
   { href: "/admin/aircraft", label: "Aircraft" },
-  { href: "/admin/people", label: "People" },
+  { href: "/admin/jumpers", label: "Jumpers" },
   { href: "/admin/pricing", label: "Pricing" },
   { href: "/admin/reports", label: "Reports" },
   { href: "/admin/settings", label: "Settings" },
@@ -32,15 +32,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         return r.json();
       })
       .then((data) => {
-        if (data && data.role !== "admin") {
-          router.push("/manifest");
+        if (data && !data.isStaff) {
+          router.push("/my");
+          return;
+        }
+        // Non-admin staff can only access /admin/jumpers
+        if (data && data.role !== "admin" && !pathname.startsWith("/admin/jumpers")) {
+          router.push("/admin/jumpers");
           return;
         }
         if (data) setUser(data);
         setChecking(false);
       })
       .catch(() => { router.push("/login"); });
-  }, [router]);
+  }, [router, pathname]);
 
   async function handleLogout() {
     await fetch("/api/auth", { method: "DELETE" });
