@@ -125,7 +125,7 @@ export default function PeoplePage() {
             {filtered.map((p) => {
               const types = (p.personType || "customer").split(",");
               return (
-                <tr key={p.id} className="border-b hover:bg-gray-50">
+                <tr key={p.id} className="border-b hover:bg-gray-50 cursor-pointer" onClick={() => setEditPerson(p)}>
                   <td className="px-4 py-3 font-medium">{p.firstName} {p.lastName}</td>
                   <td className="px-4 py-3 text-gray-600 text-sm">{p.email}</td>
                   <td className="px-4 py-3 text-center">
@@ -184,7 +184,17 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
   const [staffPassword, setStaffPassword] = useState("");
   const [weight, setWeight] = useState(String(person.weight));
   const [licenseLevel, setLicenseLevel] = useState(person.licenseLevel);
+  const [uspaNumber, setUspaNumber] = useState(person.uspaNumber || "");
+  const [phone, setPhone] = useState(person.phone || "");
   const [saving, setSaving] = useState(false);
+  const [tab, setTab] = useState<"profile" | "balance">("profile");
+
+  // Balance state
+  const [cashBalance, setCashBalance] = useState(person.balance);
+  const [blockBalance, setBlockBalance] = useState(person.jumpBlockRemaining);
+  const [payAmount, setPayAmount] = useState("");
+  const [blockAmount, setBlockAmount] = useState("");
+  const [balanceMsg, setBalanceMsg] = useState("");
 
   async function save() {
     setSaving(true);
@@ -199,6 +209,8 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
       personType: newTypes.join(","),
       weight: Number(weight),
       licenseLevel,
+      uspaNumber: uspaNumber || null,
+      phone: phone || null,
     };
     if (isStaff) {
       body.staffRole = staffRole;
@@ -214,85 +226,206 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
     onSave();
   }
 
+  async function addCash() {
+    const val = Number(payAmount);
+    if (!val || val <= 0) return;
+    const res = await fetch(`/api/jumpers/${person.id}/balance`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "add_cash", amount: val }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setCashBalance(data.balance);
+      setBlockBalance(data.jumpBlockRemaining);
+      setPayAmount("");
+      setBalanceMsg(`Added $${val.toFixed(2)}`);
+    }
+  }
+
+  async function addBlocks() {
+    const val = Number(blockAmount);
+    if (!val || val <= 0) return;
+    const res = await fetch(`/api/jumpers/${person.id}/balance`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "add_blocks", amount: val }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setCashBalance(data.balance);
+      setBlockBalance(data.jumpBlockRemaining);
+      setBlockAmount("");
+      setBalanceMsg(`Added ${Math.round(val)} block(s)`);
+    }
+  }
+
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl p-6 w-96 max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <h3 className="font-bold text-lg mb-1">{person.firstName} {person.lastName}</h3>
-        <p className="text-sm text-gray-500 mb-4">{person.email}</p>
-
-        {/* Type checkboxes */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Person Type</label>
-          <div className="flex gap-4">
-            {TYPE_OPTIONS.map((t) => {
-              const checked = t === "customer" ? isCustomer : t === "staff" ? isStaff : isGround;
-              const setter = t === "customer" ? setIsCustomer : t === "staff" ? setIsStaff : setIsGround;
-              return (
-                <label key={t} className="flex items-center gap-1.5 text-sm">
-                  <input type="checkbox" checked={checked} onChange={(e) => setter(e.target.checked)}
-                    className="rounded border-gray-300" />
-                  <span className="capitalize">{t}</span>
-                </label>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Staff options */}
-        {isStaff && (
-          <div className="mb-4 p-3 bg-purple-50 rounded-lg space-y-3">
+      <div className="bg-white rounded-xl shadow-xl w-[480px] max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="p-5 border-b">
+          <div className="flex justify-between items-start">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Staff Role</label>
-              <select value={staffRole} onChange={(e) => setStaffRole(e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 text-sm">
-                <option value="operator">Operator</option>
-                <option value="admin">Admin</option>
-              </select>
+              <h3 className="font-bold text-lg">{person.firstName} {person.lastName}</h3>
+              <p className="text-sm text-gray-500">{person.email}</p>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Login Password {person.staffRole ? "(leave blank to keep current)" : "*"}
-              </label>
-              <input type="password" value={staffPassword} onChange={(e) => setStaffPassword(e.target.value)}
-                placeholder={person.staffRole ? "Unchanged" : "Set password"}
-                className="w-full border rounded-lg px-3 py-2 text-sm" />
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+          </div>
+          {/* Balance summary */}
+          <div className="flex gap-4 mt-3">
+            <div className="bg-green-50 rounded-lg px-3 py-2 flex-1">
+              <div className="text-[10px] text-green-600 uppercase font-medium">Cash</div>
+              <div className="text-lg font-bold text-green-700">${(cashBalance / 100).toFixed(2)}</div>
+            </div>
+            <div className="bg-blue-50 rounded-lg px-3 py-2 flex-1">
+              <div className="text-[10px] text-blue-600 uppercase font-medium">Jump Blocks</div>
+              <div className="text-lg font-bold text-blue-700">{blockBalance}</div>
             </div>
           </div>
-        )}
-
-        {/* Profile fields */}
-        <div className="space-y-3 mb-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Weight (lbs)</label>
-            <input type="number" value={weight} onChange={(e) => setWeight(e.target.value)}
-              className="w-full border rounded-lg px-3 py-2 text-sm" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">License Level</label>
-            <select value={licenseLevel} onChange={(e) => setLicenseLevel(e.target.value)}
-              className="w-full border rounded-lg px-3 py-2 text-sm">
-              <option value="unknown">Unknown</option>
-              <option value="student">Student</option>
-              <option value="A">A</option>
-              <option value="B">B</option>
-              <option value="C">C</option>
-              <option value="D">D</option>
-            </select>
-          </div>
         </div>
 
-        {/* Balance info */}
-        <div className="mb-4 text-sm text-gray-600 flex gap-4">
-          <span>Cash: <span className="font-medium text-green-700">${(person.balance / 100).toFixed(2)}</span></span>
-          <span>Blocks: <span className="font-medium text-blue-700">{person.jumpBlockRemaining}</span></span>
-        </div>
-
-        <div className="flex gap-2">
-          <button onClick={save} disabled={saving}
-            className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 text-sm disabled:opacity-50">
-            {saving ? "Saving..." : "Save"}
+        {/* Tabs */}
+        <div className="flex border-b">
+          <button onClick={() => setTab("profile")}
+            className={`flex-1 py-2 text-sm font-medium ${tab === "profile" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500"}`}>
+            Profile
           </button>
-          <button onClick={onClose} className="px-4 py-2 rounded-lg border hover:bg-gray-50 text-sm">Cancel</button>
+          <button onClick={() => setTab("balance")}
+            className={`flex-1 py-2 text-sm font-medium ${tab === "balance" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500"}`}>
+            Payments & Blocks
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-5">
+          {tab === "profile" ? (
+            <div className="space-y-4">
+              {/* Type checkboxes */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
+                <div className="flex gap-4">
+                  {TYPE_OPTIONS.map((t) => {
+                    const checked = t === "customer" ? isCustomer : t === "staff" ? isStaff : isGround;
+                    const setter = t === "customer" ? setIsCustomer : t === "staff" ? setIsStaff : setIsGround;
+                    return (
+                      <label key={t} className="flex items-center gap-1.5 text-sm">
+                        <input type="checkbox" checked={checked} onChange={(e) => setter(e.target.checked)}
+                          className="rounded border-gray-300" />
+                        <span className="capitalize">{t}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Staff options */}
+              {isStaff && (
+                <div className="p-3 bg-purple-50 rounded-lg space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Staff Role</label>
+                    <select value={staffRole} onChange={(e) => setStaffRole(e.target.value)}
+                      className="w-full border rounded-lg px-3 py-2 text-sm">
+                      <option value="operator">Operator</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Password {person.staffRole ? "(blank = keep current)" : ""}
+                    </label>
+                    <input type="password" value={staffPassword} onChange={(e) => setStaffPassword(e.target.value)}
+                      placeholder={person.staffRole ? "Unchanged" : "Set password"}
+                      className="w-full border rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                </div>
+              )}
+
+              {/* Profile fields */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Weight (lbs)</label>
+                  <input type="number" value={weight} onChange={(e) => setWeight(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">License</label>
+                  <select value={licenseLevel} onChange={(e) => setLicenseLevel(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2 text-sm">
+                    <option value="unknown">Unknown</option>
+                    <option value="student">Student</option>
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                    <option value="C">C</option>
+                    <option value="D">D</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">USPA #</label>
+                <input value={uspaNumber} onChange={(e) => setUspaNumber(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-sm" />
+              </div>
+
+              {/* Compliance */}
+              <div className="pt-2 border-t">
+                <ComplianceBadge hasWaiver={person.hasWaiver} reserveExpired={person.reserveExpired}
+                  reservePackDate={person.reservePackDate} uspaStatus={person.uspaStatus} uspaVerifiedAt={person.uspaVerifiedAt} />
+              </div>
+
+              <button onClick={save} disabled={saving}
+                className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 text-sm disabled:opacity-50">
+                {saving ? "Saving..." : "Save Profile"}
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Add Cash */}
+              <div className="p-4 border rounded-lg">
+                <h4 className="text-sm font-medium mb-2">Add Cash Payment</h4>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <span className="absolute left-3 top-2 text-gray-400">$</span>
+                    <input type="number" min="0" step="0.01" value={payAmount} onChange={(e) => setPayAmount(e.target.value)}
+                      placeholder="0.00" className="w-full border rounded-lg pl-7 pr-3 py-2 text-sm" />
+                  </div>
+                  <button onClick={addCash} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700">
+                    Add Cash
+                  </button>
+                </div>
+              </div>
+
+              {/* Add Jump Blocks */}
+              <div className="p-4 border rounded-lg">
+                <h4 className="text-sm font-medium mb-2">Add Jump Blocks</h4>
+                <div className="flex gap-2 mb-2">
+                  <input type="number" min="1" step="1" value={blockAmount} onChange={(e) => setBlockAmount(e.target.value)}
+                    placeholder="# of blocks" className="flex-1 border rounded-lg px-3 py-2 text-sm" />
+                  <button onClick={addBlocks} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">
+                    Add Blocks
+                  </button>
+                </div>
+                {/* Quick-add buttons */}
+                <div className="flex gap-2">
+                  {[5, 10, 20].map((n) => (
+                    <button key={n} onClick={() => { setBlockAmount(String(n)); }}
+                      className="flex-1 border rounded-lg py-1.5 text-xs hover:bg-gray-50 font-medium">
+                      {n} blocks
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {balanceMsg && (
+                <div className="bg-green-50 text-green-700 text-sm px-3 py-2 rounded-lg">{balanceMsg}</div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
