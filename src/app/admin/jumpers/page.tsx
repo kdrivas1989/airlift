@@ -186,6 +186,7 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
   const [licenseLevel, setLicenseLevel] = useState(person.licenseLevel);
   const [uspaNumber, setUspaNumber] = useState(person.uspaNumber || "");
   const [phone, setPhone] = useState(person.phone || "");
+  const [reservePackDate, setReservePackDate] = useState(person.reservePackDate || "");
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState<"profile" | "balance">("profile");
 
@@ -211,6 +212,7 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
       licenseLevel,
       uspaNumber: uspaNumber || null,
       phone: phone || null,
+      reservePackDate: reservePackDate || null,
     };
     if (isStaff) {
       body.staffRole = staffRole;
@@ -370,6 +372,23 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
                 <label className="block text-sm font-medium text-gray-700 mb-1">USPA #</label>
                 <input value={uspaNumber} onChange={(e) => setUspaNumber(e.target.value)}
                   className="w-full border rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Reserve Pack Date</label>
+                <input type="date" value={reservePackDate} onChange={(e) => setReservePackDate(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-sm" />
+                {reservePackDate && (() => {
+                  const packDate = new Date(reservePackDate);
+                  const expires = new Date(packDate.getTime() + 180 * 24 * 60 * 60 * 1000);
+                  const daysLeft = Math.ceil((expires.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+                  const expired = daysLeft <= 0;
+                  return (
+                    <p className={`text-xs mt-1 ${expired ? "text-red-600 font-medium" : daysLeft <= 30 ? "text-orange-600" : "text-green-600"}`}>
+                      {expired ? `EXPIRED ${Math.abs(daysLeft)} days ago` : `Expires in ${daysLeft} days (${expires.toLocaleDateString()})`}
+                    </p>
+                  );
+                })()}
+                {!reservePackDate && <p className="text-xs text-red-500 mt-1">Required to manifest — must be set by staff</p>}
               </div>
 
               {/* Compliance */}

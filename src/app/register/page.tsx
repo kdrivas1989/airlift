@@ -136,11 +136,7 @@ export default function RegisterPage() {
             <input name="uspaNumber" className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Reserve Pack Date</label>
-            <input name="reservePackDate" type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-            <p className="text-xs text-gray-500 mt-1">Must be within 180 days to manifest</p>
-          </div>
+          <input name="reservePackDate" type="hidden" value="" />
 
           <button
             type="submit"
