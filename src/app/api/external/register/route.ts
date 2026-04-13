@@ -10,6 +10,7 @@ import { hashPassword } from "@/lib/auth";
  * Auth: Bearer token (AIRLIFT_API_KEY env var)
  */
 export async function POST(request: NextRequest) {
+  try {
   // Verify API key
   const authHeader = request.headers.get("authorization");
   const apiKey = process.env.AIRLIFT_API_KEY;
@@ -98,4 +99,9 @@ export async function POST(request: NextRequest) {
     created: !jumper,
     ...(generatedPassword ? { temporaryPassword: generatedPassword } : {}),
   }, { status: 201 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    const stack = error instanceof Error ? error.stack : "";
+    return NextResponse.json({ error: message, stack }, { status: 500 });
+  }
 }
