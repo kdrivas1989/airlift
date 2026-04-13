@@ -112,6 +112,25 @@ export async function getSession(): Promise<AuthUser | null> {
   ).get(sessionId) as SessionRow | undefined;
   if (!session) return null;
 
+  // Try legacy staff table first (avoids ID collision with jumpers table)
+  const staff = db.prepare("SELECT * FROM staff WHERE id = ? AND active = 1").get(session.staff_id) as LegacyStaffRow | undefined;
+  if (staff) {
+    // Check if this staff member has been migrated to jumpers
+    const jumperByEmail = db.prepare("SELECT * FROM jumpers WHERE email = ? AND person_type LIKE '%staff%'").get(staff.email) as JumperRow | undefined;
+    if (jumperByEmail) {
+      return {
+        staffId: jumperByEmail.id, email: jumperByEmail.email,
+        name: `${jumperByEmail.first_name} ${jumperByEmail.last_name}`.trim(),
+        role: (jumperByEmail.staff_role || staff.role || "operator") as AuthUser["role"],
+        isStaff: true, personType: jumperByEmail.person_type || "staff",
+      };
+    }
+    return {
+      staffId: staff.id, email: staff.email, name: staff.name || "",
+      role: (staff.role || "operator") as AuthUser["role"], isStaff: true, personType: "staff",
+    };
+  }
+
   // Try jumpers table
   const jumper = db.prepare("SELECT * FROM jumpers WHERE id = ?").get(session.staff_id) as JumperRow | undefined;
   if (jumper) {
@@ -124,13 +143,7 @@ export async function getSession(): Promise<AuthUser | null> {
     };
   }
 
-  // Fallback to legacy staff table
-  const staff = db.prepare("SELECT * FROM staff WHERE id = ? AND active = 1").get(session.staff_id) as LegacyStaffRow | undefined;
-  if (!staff) return null;
-  return {
-    staffId: staff.id, email: staff.email, name: staff.name || "",
-    role: (staff.role || "operator") as AuthUser["role"], isStaff: true, personType: "staff",
-  };
+  return null;
 }
 
 export async function requireAuth(): Promise<AuthUser> {
