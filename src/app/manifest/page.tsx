@@ -96,6 +96,12 @@ export default function ManifestDashboard() {
   const [dragOverLoad, setDragOverLoad] = useState<number | null>(null);
   const [balanceModal, setBalanceModal] = useState<CheckedInJumper | null>(null);
 
+  // Auto-timer state
+  const [timerMode, setTimerMode] = useState<"auto" | "manual">("auto");
+  const [flightTime, setFlightTime] = useState("25");
+  const [taxiTime, setTaxiTime] = useState("3");
+  const cycleMinutes = Number(flightTime || 0) + Number(taxiTime || 0);
+
   const fetchLoads = useCallback(() => {
     fetch("/api/loads?status=open,boarding,in_flight,landed")
       .then((r) => r.json())
@@ -141,6 +147,28 @@ export default function ManifestDashboard() {
     e.preventDefault();
     setError("");
     const form = new FormData(e.currentTarget);
+
+    let departureMinutes = 0;
+    if (timerMode === "auto") {
+      // Find the last load's departure time and add cycleMinutes
+      const openLoads = loads.filter((l) => ["open", "boarding"].includes(l.status));
+      const lastDep = openLoads
+        .filter((l) => l.departureTime)
+        .map((l) => new Date(l.departureTime!).getTime())
+        .sort((a, b) => b - a)[0];
+
+      if (lastDep) {
+        // Next departure = last departure + cycle time
+        const nextDepMs = lastDep + cycleMinutes * 60 * 1000;
+        departureMinutes = Math.max(1, Math.round((nextDepMs - Date.now()) / 60000));
+      } else {
+        // First load — use cycle time as initial departure
+        departureMinutes = cycleMinutes;
+      }
+    } else {
+      departureMinutes = Number(form.get("departureMinutes")) || 0;
+    }
+
     const res = await fetch("/api/loads", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -148,7 +176,7 @@ export default function ManifestDashboard() {
         aircraftId: Number(form.get("aircraftId")),
         fuelWeight: Number(form.get("fuelWeight")) || 0,
         defaultAltitude: Number(form.get("defaultAltitude")) || 13500,
-        departureMinutes: Number(form.get("departureMinutes")) || 0,
+        departureMinutes,
       }),
     });
     const data = await res.json();
@@ -272,6 +300,40 @@ export default function ManifestDashboard() {
             </button>
           </div>
 
+          {/* Timer mode toggle */}
+          <div className="p-2 border-b bg-gray-100 space-y-2">
+            <div className="flex rounded overflow-hidden border text-[11px]">
+              <button onClick={() => setTimerMode("auto")}
+                className={`flex-1 py-1 font-medium ${timerMode === "auto" ? "bg-blue-600 text-white" : "bg-white text-gray-600"}`}>
+                Auto
+              </button>
+              <button onClick={() => setTimerMode("manual")}
+                className={`flex-1 py-1 font-medium ${timerMode === "manual" ? "bg-blue-600 text-white" : "bg-white text-gray-600"}`}>
+                Manual
+              </button>
+            </div>
+            {timerMode === "auto" && (
+              <div className="flex gap-1 items-center text-[11px]">
+                <div className="flex-1">
+                  <label className="text-gray-500">Flight</label>
+                  <input type="number" min="1" value={flightTime} onChange={(e) => setFlightTime(e.target.value)}
+                    className="w-full border rounded px-1 py-0.5 text-center text-xs" />
+                </div>
+                <span className="text-gray-400 mt-3">+</span>
+                <div className="flex-1">
+                  <label className="text-gray-500">Taxi</label>
+                  <input type="number" min="0" value={taxiTime} onChange={(e) => setTaxiTime(e.target.value)}
+                    className="w-full border rounded px-1 py-0.5 text-center text-xs" />
+                </div>
+                <span className="text-gray-400 mt-3">=</span>
+                <div className="flex-1">
+                  <label className="text-gray-500">Cycle</label>
+                  <div className="text-center text-xs font-bold text-blue-700 py-0.5">{cycleMinutes}m</div>
+                </div>
+              </div>
+            )}
+          </div>
+
           {showCreate && (
             <form onSubmit={createLoad} className="p-3 border-b bg-white space-y-2">
               <select name="aircraftId" required className="w-full border rounded px-2 py-1 text-sm">
@@ -284,9 +346,16 @@ export default function ManifestDashboard() {
                 <input name="fuelWeight" type="number" min="0" defaultValue="500" placeholder="Fuel lbs" className="w-1/2 border rounded px-2 py-1 text-sm" />
                 <input name="defaultAltitude" type="number" min="3000" defaultValue="13500" placeholder="Alt ft" className="w-1/2 border rounded px-2 py-1 text-sm" />
               </div>
-              <div>
-                <input name="departureMinutes" type="number" min="0" defaultValue="20" placeholder="Min to departure" className="w-full border rounded px-2 py-1 text-sm" />
-              </div>
+              {timerMode === "manual" && (
+                <div>
+                  <input name="departureMinutes" type="number" min="0" defaultValue="20" placeholder="Min to departure" className="w-full border rounded px-2 py-1 text-sm" />
+                </div>
+              )}
+              {timerMode === "auto" && (
+                <div className="text-[11px] text-blue-600 bg-blue-50 rounded px-2 py-1">
+                  Departure auto-set: {cycleMinutes}min cycle
+                </div>
+              )}
               <div className="flex gap-1">
                 <button type="submit" className="bg-blue-600 text-white text-xs px-3 py-1 rounded hover:bg-blue-700">Create</button>
                 <button type="button" onClick={() => setShowCreate(false)} className="text-xs px-3 py-1 rounded border hover:bg-gray-50">Cancel</button>
