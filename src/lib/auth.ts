@@ -5,7 +5,7 @@ import crypto from "crypto";
 
 const SESSION_COOKIE = "manifest_session";
 const SESSION_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
-const REMEMBER_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const REMEMBER_DURATION_MS = 365 * 24 * 60 * 60 * 1000; // effectively forever
 
 interface JumperRow {
   id: number;
