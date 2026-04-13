@@ -47,13 +47,13 @@ export default function ManifestLayout({ children }: { children: React.ReactNode
             <Link href="/manifest" className={`text-sm hover:text-white ${pathname === "/manifest" ? "text-white" : "text-gray-400"}`}>
               Dashboard
             </Link>
-            <Link href="/admin/jumpers" className={`text-sm hover:text-white ${pathname === "/admin/jumpers" ? "text-white" : "text-gray-400"}`}>
+            <a href="/admin/jumpers" className={`text-sm hover:text-white text-gray-400`}>
               Jumpers
-            </Link>
+            </a>
             {user?.role === "admin" && (
-              <Link href="/admin/aircraft" className={`text-sm hover:text-white ${pathname.startsWith("/admin") && pathname !== "/admin/jumpers" ? "text-white" : "text-gray-400"}`}>
+              <a href="/admin/aircraft" className="text-sm hover:text-white text-gray-400">
                 Admin
-              </Link>
+              </a>
             )}
           </div>
           <div className="flex items-center gap-4">
