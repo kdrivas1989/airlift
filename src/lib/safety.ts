@@ -152,6 +152,8 @@ export function checkUSPA(db: Database.Database, jumperId: number): SafetyResult
   ).get(jumperId) as { uspa_number: string | null; uspa_status: string | null; uspa_verified_at: string | null } | undefined;
 
   if (!jumper) return { ok: false, error: "Jumper not found" };
+  // If status is already Active (e.g. set by boogie registration), allow without USPA number
+  if (jumper.uspa_status === "Active") return { ok: true };
   if (!jumper.uspa_number) return { ok: false, error: "No USPA member number on file" };
   if (!jumper.uspa_verified_at) return { ok: false, error: "USPA membership not verified" };
   if (jumper.uspa_status !== "Active") return { ok: false, error: "USPA membership is not active" };
