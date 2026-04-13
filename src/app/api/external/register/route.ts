@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       INSERT INTO jumpers (first_name, last_name, email, phone, date_of_birth, weight, license_level, balance, jump_block_remaining,
         uspa_number, uspa_status, uspa_verified_at, reserve_pack_date, password_hash)
       VALUES (?, ?, ?, ?, '1990-01-01', 180, 'unknown', 0, 0,
-        'BOOGIE', 'Active', ?, ?, ?)
+        NULL, 'Active', ?, ?, ?)
     `).run(firstName, lastName, email, phone || null, now, reserveDate, pwHash);
 
     const newId = result.lastInsertRowid;
