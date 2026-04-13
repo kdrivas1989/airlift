@@ -186,8 +186,16 @@ function migrate(db: Database.Database) {
     db.exec("ALTER TABLE loads ADD COLUMN departure_time TEXT");
   }
 
+  // Add password_hash for everyone's login (must come before person_type migration)
+  // Re-read cols since earlier migrations may have changed them
+  const cols2 = db.prepare("PRAGMA table_info(jumpers)").all() as Array<{ name: string }>;
+  const colNames2 = cols2.map(c => c.name);
+  if (!colNames2.includes("password_hash")) {
+    db.exec("ALTER TABLE jumpers ADD COLUMN password_hash TEXT");
+  }
+
   // Add person_type to jumpers (customer, staff, ground — comma-separated)
-  if (!colNames.includes("person_type")) {
+  if (!colNames2.includes("person_type")) {
     db.exec(`
       ALTER TABLE jumpers ADD COLUMN person_type TEXT NOT NULL DEFAULT 'customer';
       ALTER TABLE jumpers ADD COLUMN staff_password_hash TEXT;
@@ -210,12 +218,8 @@ function migrate(db: Database.Database) {
     }
   }
 
-  // Add password_hash for everyone's login
-  if (!colNames.includes("password_hash")) {
-    db.exec("ALTER TABLE jumpers ADD COLUMN password_hash TEXT");
-    // Copy staff passwords to password_hash
-    db.exec("UPDATE jumpers SET password_hash = staff_password_hash WHERE staff_password_hash IS NOT NULL AND password_hash IS NULL");
-  }
+  // Ensure staff passwords are copied to password_hash
+  db.exec("UPDATE jumpers SET password_hash = staff_password_hash WHERE staff_password_hash IS NOT NULL AND password_hash IS NULL");
 }
 
 function seed(db: Database.Database) {
