@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { lookupMember, verifyAndUpdateJumper, setUSPACredentials, getUSPAStatus } from "@/lib/uspa";
+import { lookupMember, lookupMemberByName, verifyAndUpdateJumper, setUSPACredentials, getUSPAStatus } from "@/lib/uspa";
 
 // GET /api/uspa — check USPA integration status
 export async function GET() {
@@ -18,6 +18,12 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { jumperId, uspaNumber } = body;
+
+    // Name search: provide firstName + lastName
+    if (body.firstName && body.lastName) {
+      const results = await lookupMemberByName(body.firstName, body.lastName);
+      return NextResponse.json({ results });
+    }
 
     if (!uspaNumber) {
       return NextResponse.json({ error: "USPA number required" }, { status: 400 });

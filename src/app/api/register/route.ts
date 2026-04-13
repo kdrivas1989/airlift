@@ -8,13 +8,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { firstName, lastName, email, phone, dateOfBirth, weight, uspaNumber, licenseLevel, reservePackDate, password } = body;
 
-    if (!firstName || !lastName || !email || !dateOfBirth || !weight || !licenseLevel) {
+    if (!firstName || !lastName || !email || !dateOfBirth || !weight) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
-    }
-
-    const validLevels = ["A", "B", "C", "D", "Tandem", "AFF-I", "Coach"];
-    if (!validLevels.includes(licenseLevel)) {
-      return NextResponse.json({ error: "Invalid license level" }, { status: 400 });
     }
 
     const db = getDb();

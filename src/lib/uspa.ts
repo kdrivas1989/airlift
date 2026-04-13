@@ -335,6 +335,84 @@ export async function lookupMember(uspaNumber: string): Promise<USPALookupResult
   }
 }
 
+export async function lookupMemberByName(firstName: string, lastName: string): Promise<USPALookupResult[]> {
+  const cookies = await ensureCookies();
+  if (!cookies) {
+    return [{ found: false, error: "USPA session not available. Configure credentials in Admin > Settings." }];
+  }
+
+  const params = new URLSearchParams({
+    method: "GetData",
+    language: "en-US",
+    fname: firstName,
+    lname: lastName,
+    memnum: "",
+    TabId: "420",
+    _aliasid: "12",
+    _mid: "4941",
+    _tabid: "420",
+    timezone: "-240",
+    view: "DataTable",
+  });
+
+  const url = `https://www.uspa.org/DesktopModules/DnnSharp/ActionGrid/Api.ashx?${params.toString()}`;
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Cookie: cookies,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: "pageSize=50&pageIndex=1",
+    });
+
+    if (!res.ok) {
+      return [{ found: false, error: `USPA API returned ${res.status}. Session may have expired.` }];
+    }
+
+    const data = await res.json();
+
+    if (!data.results || data.results.length === 0) {
+      return [{ found: false, error: "No members found matching that name" }];
+    }
+
+    return data.results.map((result: { fields: { Name: string; FormattedValue?: string; Value?: unknown }[] }) => {
+      const fields: Record<string, string> = {};
+      for (const f of result.fields) {
+        // Strip HTML tags from values
+        const raw = f.FormattedValue || f.Value?.toString() || "";
+        fields[f.Name] = raw.replace(/<[^>]+>/g, "").trim();
+      }
+
+      // MembershipNumber field contains "232363 06/30/2027"
+      const memParts = (fields.MembershipNumber || "").split(/\s+/);
+      const membershipNumber = memParts[0] || "";
+      const expDate = memParts[1] || "";
+
+      // LastName field contains "Drivas , Kevin Michael"
+      const nameParts = (fields.LastName || "").split(",").map(s => s.trim());
+      const last = nameParts[0] || "";
+      const first = nameParts[1] || "";
+
+      return {
+        found: true,
+        member: {
+          membershipNumber,
+          lastName: last,
+          firstName: first,
+          status: expDate && new Date(expDate) > new Date() ? "Active" : "Expired",
+          expDate,
+          licenses: fields.LicenseList || "",
+        },
+      };
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    return [{ found: false, error: `USPA name search failed: ${msg}` }];
+  }
+}
+
 export async function lookupMultipleMembers(uspaNumbers: string[]): Promise<Map<string, USPAMember>> {
   const cookies = await ensureCookies();
   if (!cookies) return new Map();

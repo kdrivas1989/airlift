@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-const LICENSE_LEVELS = ["A", "B", "C", "D", "Tandem", "AFF-I", "Coach"];
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 export default function RegisterPage() {
@@ -40,7 +39,7 @@ export default function RegisterPage() {
           weight: Number(form.get("weight")),
           password: form.get("password"),
           uspaNumber: form.get("uspaNumber") || null,
-          licenseLevel: form.get("licenseLevel"),
+          licenseLevel: "unknown",
           reservePackDate: form.get("reservePackDate") || null,
         }),
       });
@@ -117,18 +116,9 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Weight (lbs) *</label>
-              <input name="weight" type="number" min="50" max="400" required className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">License Level *</label>
-              <select name="licenseLevel" required className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
-                <option value="">Select</option>
-                {LICENSE_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
-              </select>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Weight (lbs) *</label>
+            <input name="weight" type="number" min="50" max="400" required className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
           </div>
 
           <div>
