@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
-import crypto from "crypto";
 
 /**
  * External registration endpoint for Alter Ego Adventures integration.
@@ -45,7 +44,7 @@ export async function POST(request: NextRequest) {
     const now = new Date().toISOString();
     const reserveDate = now.split("T")[0]; // today, valid for 180 days
     // Generate a random password for the jumper's login
-    generatedPassword = crypto.randomBytes(4).toString("hex"); // 8 char hex
+    generatedPassword = Math.random().toString(36).slice(2, 10); // 8 char alphanumeric
     const pwHash = hashPassword(generatedPassword);
 
     const result = db.prepare(`
