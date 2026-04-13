@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
       params.push(dateParam);
     }
 
-    query += " ORDER BY l.created_at DESC";
+    query += " ORDER BY l.load_number ASC";
 
     const loads = db.prepare(query).all(...params) as Array<Record<string, unknown>>;
 
