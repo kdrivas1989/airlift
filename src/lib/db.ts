@@ -252,11 +252,14 @@ function seed(db: Database.Database) {
     }
   }
 
-  // Seed sample aircraft if none exist
+  // Seed aircraft if none exist
   const aircraftCount = db.prepare("SELECT COUNT(*) as count FROM aircraft").get() as { count: number };
   if (aircraftCount.count === 0) {
     db.prepare(
       "INSERT INTO aircraft (tail_number, name, slot_count, empty_weight, max_gross_weight) VALUES (?, ?, ?, ?, ?)"
     ).run("N12345", "Twin Otter", 23, 8500, 12500);
+    db.prepare(
+      "INSERT INTO aircraft (tail_number, name, slot_count, empty_weight, max_gross_weight) VALUES (?, ?, ?, ?, ?)"
+    ).run("4R-ACA", "CASA 212", 28, 10037, 16975);
   }
 }
