@@ -533,7 +533,7 @@ export default function ManifestDashboard() {
                   key={j.id}
                   draggable={j.canManifest && !onLoad}
                   onDragStart={(e) => { e.dataTransfer.setData("jumperId", String(j.id)); e.dataTransfer.effectAllowed = "move"; }}
-                  className={`border-b px-3 py-2 flex items-center gap-2 text-sm select-none ${
+                  className={`border-b px-3 py-2 flex items-center gap-2 text-sm ${
                     onLoad
                       ? "bg-gray-100 opacity-50"
                       : j.canManifest
@@ -541,6 +541,10 @@ export default function ManifestDashboard() {
                       : "bg-white"
                   }`}
                 >
+                  {/* Drag handle */}
+                  {j.canManifest && !onLoad && (
+                    <span className="text-gray-300 shrink-0 cursor-grab" title="Drag to load">&#x2630;</span>
+                  )}
                   <ComplianceBadge
                     hasWaiver={j.hasWaiver}
                     reserveExpired={j.reserveExpired}
@@ -548,7 +552,7 @@ export default function ManifestDashboard() {
                     uspaStatus={j.uspaActive ? "Active" : null}
                     compact
                   />
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 pointer-events-none">
                     <div className="font-medium truncate">
                       {j.firstName} {j.lastName}
                       {onLoad && <span className="text-[10px] text-gray-400 ml-1">(on load)</span>}
@@ -558,10 +562,11 @@ export default function ManifestDashboard() {
                       <span>{j.licenseLevel}</span>
                     </div>
                   </div>
-                  <div className="text-right shrink-0">
+                  <div className="text-right shrink-0" draggable={false}>
                     <button
                       onClick={() => setBalanceModal(j)}
                       className="text-[10px] leading-tight"
+                      draggable={false}
                     >
                       {j.balance > 0 && <div className="text-green-700 font-medium">${(j.balance / 100).toFixed(2)}</div>}
                       {j.jumpBlockRemaining > 0 && <div className="text-blue-700 font-medium">{j.jumpBlockRemaining} blk</div>}
@@ -572,6 +577,7 @@ export default function ManifestDashboard() {
                     <button
                       onClick={(e) => { e.stopPropagation(); addJumperToLoad(j.id, selectedLoadId); }}
                       onMouseDown={(e) => e.stopPropagation()}
+                      draggable={false}
                       className="text-blue-600 hover:text-blue-800 text-lg font-bold shrink-0 px-1"
                       title="Add to selected load"
                     >
