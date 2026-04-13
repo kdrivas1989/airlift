@@ -21,6 +21,7 @@ export default function LoginPage() {
       body: JSON.stringify({
         email: form.get("email"),
         password: form.get("password"),
+        rememberMe: form.get("rememberMe") === "on",
       }),
     });
 
@@ -58,6 +59,10 @@ export default function LoginPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
             <input name="password" type="password" required className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
           </div>
+          <label className="flex items-center gap-2 text-sm text-gray-600">
+            <input name="rememberMe" type="checkbox" defaultChecked className="rounded border-gray-300" />
+            Remember me for 30 days
+          </label>
           <button type="submit" disabled={loading} className="w-full bg-gray-800 text-white py-3 rounded-lg font-semibold hover:bg-gray-900 transition disabled:opacity-50">
             {loading ? "Signing in..." : "Sign In"}
           </button>

@@ -5,6 +5,7 @@ import crypto from "crypto";
 
 const SESSION_COOKIE = "manifest_session";
 const SESSION_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
+const REMEMBER_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 interface JumperRow {
   id: number;
@@ -42,7 +43,7 @@ export interface AuthUser {
   personType: string;
 }
 
-export async function login(email: string, password: string): Promise<AuthUser | null> {
+export async function login(email: string, password: string, rememberMe = false): Promise<AuthUser | null> {
   const db = getDb();
 
   // Try jumpers table (unified model)
@@ -58,14 +59,14 @@ export async function login(email: string, password: string): Promise<AuthUser |
       const role = isStaff ? (jumper.staff_role || "operator") : "customer";
       return createSession(db, jumper.id, jumper.email,
         `${jumper.first_name} ${jumper.last_name}`.trim(),
-        role, isStaff, jumper.person_type || "customer");
+        role, isStaff, jumper.person_type || "customer", rememberMe);
     }
   }
 
   // Fallback to legacy staff table
   const staff = db.prepare("SELECT * FROM staff WHERE email = ? AND active = 1").get(email) as LegacyStaffRow | undefined;
   if (staff && compareSync(password, staff.password_hash)) {
-    return createSession(db, staff.id, staff.email, staff.name || "", staff.role || "operator", true, "staff");
+    return createSession(db, staff.id, staff.email, staff.name || "", staff.role || "operator", true, "staff", rememberMe);
   }
 
   return null;
@@ -73,10 +74,11 @@ export async function login(email: string, password: string): Promise<AuthUser |
 
 async function createSession(
   db: ReturnType<typeof getDb>, userId: number, email: string,
-  name: string, role: string, isStaff: boolean, personType: string
+  name: string, role: string, isStaff: boolean, personType: string, rememberMe = false
 ): Promise<AuthUser> {
+  const duration = rememberMe ? REMEMBER_DURATION_MS : SESSION_DURATION_MS;
   const sessionId = crypto.randomUUID();
-  const expiresAt = new Date(Date.now() + SESSION_DURATION_MS).toISOString();
+  const expiresAt = new Date(Date.now() + duration).toISOString();
   db.prepare("INSERT INTO sessions (id, staff_id, expires_at) VALUES (?, ?, ?)").run(sessionId, userId, expiresAt);
 
   const cookieStore = await cookies();
@@ -85,7 +87,7 @@ async function createSession(
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: SESSION_DURATION_MS / 1000,
+    maxAge: duration / 1000,
   });
 
   return { staffId: userId, email, name, role: role as AuthUser["role"], isStaff, personType };
