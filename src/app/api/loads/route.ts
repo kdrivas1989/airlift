@@ -65,6 +65,7 @@ export async function GET(request: NextRequest) {
           altitude: m.altitude,
           exitOrder: m.exit_order,
           ticketPrice: m.ticket_price,
+          paymentMethod: m.payment_method || "block",
         })),
       };
     });

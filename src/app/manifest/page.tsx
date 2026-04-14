@@ -52,6 +52,12 @@ interface CheckedInJumper {
   checkedInAt: string;
 }
 
+interface JumpGroup {
+  id: number;
+  name: string;
+  members: Array<{ id: number; firstName: string; lastName: string; weight: number }>;
+}
+
 const STATUS_COLORS: Record<string, string> = {
   open: "border-green-400 bg-green-50",
   boarding: "border-yellow-400 bg-yellow-50",
@@ -96,6 +102,9 @@ export default function ManifestDashboard() {
   const [dragOverLoad, setDragOverLoad] = useState<number | null>(null);
   const [balanceModal, setBalanceModal] = useState<CheckedInJumper | null>(null);
 
+  const [groups, setGroups] = useState<JumpGroup[]>([]);
+  const [showGroupCreate, setShowGroupCreate] = useState(false);
+
   // Auto-timer state
   const [timerMode, setTimerMode] = useState<"auto" | "manual">("auto");
   const [flightTime, setFlightTime] = useState("25");
@@ -116,9 +125,14 @@ export default function ManifestDashboard() {
       .catch(() => {});
   }, []);
 
+  const fetchGroups = useCallback(() => {
+    fetch("/api/groups").then((r) => r.json()).then((data) => setGroups(data.groups || [])).catch(() => {});
+  }, []);
+
   useEffect(() => {
     fetchLoads();
     fetchCheckedIn();
+    fetchGroups();
     fetch("/api/aircraft").then((r) => r.json()).then((data) => setAircraft(data.aircraft || []));
     const interval = setInterval(() => { fetchLoads(); fetchCheckedIn(); }, 5000);
     return () => clearInterval(interval);
@@ -195,6 +209,26 @@ export default function ManifestDashboard() {
     });
     const data = await res.json();
     if (!res.ok) { setError(data.error); return; }
+    fetchLoads();
+    fetchCheckedIn();
+  }
+
+  async function addGroupToLoad(group: JumpGroup, loadId: number) {
+    setError("");
+    const errors: string[] = [];
+    for (const m of group.members) {
+      if (manifestedJumperIds.has(m.id)) continue; // skip already on a load
+      const res = await fetch(`/api/loads/${loadId}/manifest`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jumperId: m.id, jumpType }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        errors.push(`${m.firstName}: ${data.error}`);
+      }
+    }
+    if (errors.length > 0) setError(errors.join(", "));
     fetchLoads();
     fetchCheckedIn();
   }
@@ -515,8 +549,56 @@ export default function ManifestDashboard() {
           )}
         </div>
 
-        {/* RIGHT COLUMN — Today's Jumpers */}
+        {/* RIGHT COLUMN — Groups + Today's Jumpers */}
         <div className="w-72 border-l bg-gray-50 flex flex-col overflow-hidden">
+          {/* Groups */}
+          <div className="border-b">
+            <div className="p-2 flex items-center justify-between">
+              <h2 className="font-bold text-xs text-gray-600 uppercase">Groups</h2>
+              <button onClick={() => setShowGroupCreate(!showGroupCreate)} className="text-blue-600 text-xs hover:underline">
+                {showGroupCreate ? "Cancel" : "+ New"}
+              </button>
+            </div>
+            {showGroupCreate && (
+              <GroupCreateForm
+                checkedIn={checkedIn}
+                onCreated={() => { fetchGroups(); setShowGroupCreate(false); }}
+              />
+            )}
+            {groups.length > 0 && (
+              <div className="max-h-40 overflow-y-auto">
+                {groups.map((g) => (
+                  <div key={g.id} className="px-3 py-2 border-t text-xs">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-medium">{g.name} ({g.members.length})</span>
+                      <div className="flex gap-1">
+                        {selectedLoadId && editable && (
+                          <button
+                            onClick={() => addGroupToLoad(g, selectedLoadId)}
+                            className="text-blue-600 hover:underline text-[10px]"
+                          >
+                            Add to load
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {g.members.map((m) => {
+                        const onLoad = manifestedJumperIds.has(m.id);
+                        return (
+                          <span key={m.id} className={`px-1.5 py-0.5 rounded text-[10px] ${onLoad ? "bg-gray-200 text-gray-500 line-through" : "bg-blue-100 text-blue-800"}`}>
+                            {m.firstName} {m.lastName[0]}.
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Today's jumpers */}
           <div className="p-3 border-b">
             <h2 className="font-bold text-sm mb-2">Today&apos;s Jumpers</h2>
             <JumperSearch
@@ -684,6 +766,50 @@ function SetDepartureButton({ loadId, onSet, hasExisting }: { loadId: number; on
       <span className="text-xs text-gray-500">min</span>
       <button onClick={set} className="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-0.5 rounded">Set</button>
       {hasExisting && <button onClick={() => setShow(false)} className="text-xs text-gray-400 hover:text-gray-600">&times;</button>}
+    </div>
+  );
+}
+
+function GroupCreateForm({ checkedIn, onCreated }: { checkedIn: CheckedInJumper[]; onCreated: () => void }) {
+  const [name, setName] = useState("");
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [search, setSearch] = useState("");
+
+  const filtered = search.length >= 1
+    ? checkedIn.filter((j) => `${j.firstName} ${j.lastName}`.toLowerCase().includes(search.toLowerCase()))
+    : checkedIn;
+
+  async function create() {
+    if (!name.trim() || selected.size === 0) return;
+    await fetch("/api/groups", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name.trim(), memberIds: Array.from(selected) }),
+    });
+    onCreated();
+  }
+
+  return (
+    <div className="px-3 pb-3 space-y-2">
+      <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Group name..."
+        className="w-full border rounded px-2 py-1 text-xs" autoFocus />
+      <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search jumpers..."
+        className="w-full border rounded px-2 py-1 text-xs" />
+      <div className="max-h-32 overflow-y-auto border rounded">
+        {filtered.map((j) => (
+          <label key={j.id} className="flex items-center gap-2 px-2 py-1 hover:bg-gray-50 text-xs cursor-pointer">
+            <input type="checkbox" checked={selected.has(j.id)}
+              onChange={(e) => { const s = new Set(selected); e.target.checked ? s.add(j.id) : s.delete(j.id); setSelected(s); }}
+              className="rounded border-gray-300" />
+            {j.firstName} {j.lastName}
+          </label>
+        ))}
+        {filtered.length === 0 && <div className="px-2 py-2 text-xs text-gray-400">Check in jumpers first</div>}
+      </div>
+      <button onClick={create} disabled={!name.trim() || selected.size === 0}
+        className="w-full bg-blue-600 text-white text-xs py-1 rounded hover:bg-blue-700 disabled:opacity-50">
+        Create Group ({selected.size})
+      </button>
     </div>
   );
 }

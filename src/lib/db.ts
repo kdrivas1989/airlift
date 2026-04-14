@@ -145,6 +145,20 @@ function initSchema(db: Database.Database) {
     );
     CREATE INDEX IF NOT EXISTS idx_checkins_date ON checkins(date);
 
+    CREATE TABLE IF NOT EXISTS jump_groups (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS group_members (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      group_id INTEGER NOT NULL REFERENCES jump_groups(id) ON DELETE CASCADE,
+      jumper_id INTEGER NOT NULL REFERENCES jumpers(id),
+      UNIQUE(group_id, jumper_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
+
     CREATE TABLE IF NOT EXISTS balance_transactions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       jumper_id INTEGER NOT NULL REFERENCES jumpers(id),
@@ -184,6 +198,13 @@ function migrate(db: Database.Database) {
   const loadColNames = loadCols.map(c => c.name);
   if (!loadColNames.includes("departure_time")) {
     db.exec("ALTER TABLE loads ADD COLUMN departure_time TEXT");
+  }
+
+  // Add payment_method to manifest_entries
+  const meCols = db.prepare("PRAGMA table_info(manifest_entries)").all() as Array<{ name: string }>;
+  const meColNames = meCols.map(c => c.name);
+  if (!meColNames.includes("payment_method")) {
+    db.exec("ALTER TABLE manifest_entries ADD COLUMN payment_method TEXT NOT NULL DEFAULT 'block'");
   }
 
   // Add password_hash for everyone's login (must come before person_type migration)
