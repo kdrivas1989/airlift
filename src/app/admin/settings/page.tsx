@@ -143,7 +143,16 @@ export default function SettingsPage() {
               rows={3}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
-            <p className="text-xs text-gray-400 mt-1">DevTools → Network → any request → Headers → Cookie value</p>
+            <p className="text-xs text-gray-400 mt-1">
+              Or drag this to your bookmarks bar:{" "}
+              <a
+                href={`javascript:void(fetch('https://airlift.kd-evolution.com/api/uspa/sync',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cookies:document.cookie})}).then(r=>r.json()).then(d=>alert(d.valid?'USPA cookies synced to AirLIFT!':'Sync failed: '+(d.error||'unknown'))).catch(()=>alert('Failed to connect to AirLIFT')))`}
+                className="inline-block px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200 cursor-grab"
+                onClick={(e) => { e.preventDefault(); alert("Drag this to your bookmarks bar, then click it while logged into uspa.org"); }}
+              >
+                Sync USPA to AirLIFT
+              </a>
+            </p>
           </div>
 
           <button
