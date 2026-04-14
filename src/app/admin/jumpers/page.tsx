@@ -188,7 +188,7 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
   const [phone, setPhone] = useState(person.phone || "");
   const [reservePackDate, setReservePackDate] = useState(person.reservePackDate || "");
   const [saving, setSaving] = useState(false);
-  const [tab, setTab] = useState<"profile" | "balance">("profile");
+  const [tab, setTab] = useState<"profile" | "balance" | "ledger">("profile");
 
   // Balance state
   const [cashBalance, setCashBalance] = useState(person.balance);
@@ -196,6 +196,20 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
   const [payAmount, setPayAmount] = useState("");
   const [blockAmount, setBlockAmount] = useState("");
   const [balanceMsg, setBalanceMsg] = useState("");
+
+  // Ledger state
+  interface LedgerEntry {
+    date: string;
+    type: "jump" | "credit" | "debit" | "block_credit" | "block_debit";
+    description: string;
+    amount: number | null;
+    blocks: number | null;
+    loadNumber: number | null;
+    paymentMethod: string | null;
+  }
+  const [ledger, setLedger] = useState<LedgerEntry[]>([]);
+  const [totalJumps, setTotalJumps] = useState(0);
+  const [ledgerLoading, setLedgerLoading] = useState(false);
 
   async function save() {
     setSaving(true);
@@ -295,7 +309,22 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
           </button>
           <button onClick={() => setTab("balance")}
             className={`flex-1 py-2 text-sm font-medium ${tab === "balance" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500"}`}>
-            Payments & Blocks
+            Payments
+          </button>
+          <button onClick={() => {
+            setTab("ledger");
+            if (ledger.length === 0) {
+              setLedgerLoading(true);
+              fetch(`/api/jumpers/${person.id}/ledger`).then(r => r.json()).then(d => {
+                setLedger(d.ledger || []);
+                setTotalJumps(d.totalJumps || 0);
+                if (d.jumper) { setCashBalance(d.jumper.balance); setBlockBalance(d.jumper.jumpBlockRemaining); }
+                setLedgerLoading(false);
+              }).catch(() => setLedgerLoading(false));
+            }
+          }}
+            className={`flex-1 py-2 text-sm font-medium ${tab === "ledger" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500"}`}>
+            Ledger
           </button>
         </div>
 
@@ -402,7 +431,7 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
                 {saving ? "Saving..." : "Save Profile"}
               </button>
             </div>
-          ) : (
+          ) : tab === "balance" ? (
             <div className="space-y-4">
               {/* Add Cash */}
               <div className="p-4 border rounded-lg">
@@ -444,7 +473,68 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
                 <div className="bg-green-50 text-green-700 text-sm px-3 py-2 rounded-lg">{balanceMsg}</div>
               )}
             </div>
-          )}
+          ) : tab === "ledger" ? (
+            <div>
+              {ledgerLoading ? (
+                <div className="text-center py-8 text-gray-400 text-sm">Loading...</div>
+              ) : (
+                <>
+                  <div className="flex gap-3 mb-3 text-sm">
+                    <span className="text-gray-500">Total jumps: <span className="font-bold text-gray-800">{totalJumps}</span></span>
+                  </div>
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full text-xs">
+                      <thead className="bg-gray-50 border-b">
+                        <tr>
+                          <th className="text-left px-3 py-2 font-medium text-gray-600">Date</th>
+                          <th className="text-left px-3 py-2 font-medium text-gray-600">Description</th>
+                          <th className="text-right px-3 py-2 font-medium text-gray-600">Cash</th>
+                          <th className="text-right px-3 py-2 font-medium text-gray-600">Blocks</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {ledger.map((entry, i) => (
+                          <tr key={i} className="border-b hover:bg-gray-50">
+                            <td className="px-3 py-1.5 text-gray-500 whitespace-nowrap">
+                              {new Date(entry.date).toLocaleDateString()} {new Date(entry.date).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}
+                            </td>
+                            <td className="px-3 py-1.5">
+                              <div className="flex items-center gap-1">
+                                {entry.type === "jump" && <span className="text-blue-600">&#9992;</span>}
+                                {entry.type === "credit" && <span className="text-green-600">+</span>}
+                                {entry.type === "debit" && <span className="text-red-600">-</span>}
+                                {entry.type === "block_credit" && <span className="text-blue-600">+</span>}
+                                {entry.type === "block_debit" && <span className="text-red-600">-</span>}
+                                <span>{entry.description}</span>
+                                {entry.paymentMethod && (
+                                  <span className={`px-1 py-0.5 rounded text-[9px] font-medium ${
+                                    entry.paymentMethod === "cash" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"
+                                  }`}>{entry.paymentMethod}</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className={`px-3 py-1.5 text-right font-mono ${
+                              entry.amount && entry.amount > 0 ? "text-green-700" : entry.amount && entry.amount < 0 ? "text-red-600" : "text-gray-300"
+                            }`}>
+                              {entry.amount ? `${entry.amount > 0 ? "+" : ""}$${(Math.abs(entry.amount) / 100).toFixed(2)}` : "—"}
+                            </td>
+                            <td className={`px-3 py-1.5 text-right font-mono ${
+                              entry.blocks && entry.blocks > 0 ? "text-blue-700" : entry.blocks && entry.blocks < 0 ? "text-red-600" : "text-gray-300"
+                            }`}>
+                              {entry.blocks ? `${entry.blocks > 0 ? "+" : ""}${entry.blocks}` : "—"}
+                            </td>
+                          </tr>
+                        ))}
+                        {ledger.length === 0 && (
+                          <tr><td colSpan={4} className="px-3 py-8 text-center text-gray-400">No activity yet</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

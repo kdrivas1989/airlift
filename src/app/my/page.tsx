@@ -124,34 +124,38 @@ export default function MyPage() {
           )}
         </div>
 
-        {/* Jump History */}
+        {/* Account Ledger */}
         <div className="bg-white rounded-xl border overflow-hidden">
-          <div className="px-5 py-3 border-b bg-gray-50">
-            <h2 className="font-semibold">Jump History</h2>
+          <div className="px-5 py-3 border-b bg-gray-50 flex items-center justify-between">
+            <h2 className="font-semibold">Account Ledger</h2>
+            <span className="text-xs text-gray-500">{jumpHistory.length} jump(s)</span>
           </div>
-          {jumpHistory.length > 0 ? (
-            <table className="w-full">
+          {(jumpHistory.length > 0 || currentLoads.length > 0) ? (
+            <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="text-left px-5 py-2 text-xs font-medium text-gray-600">Date</th>
-                  <th className="text-left px-5 py-2 text-xs font-medium text-gray-600">Load</th>
-                  <th className="text-center px-5 py-2 text-xs font-medium text-gray-600">Type</th>
-                  <th className="text-center px-5 py-2 text-xs font-medium text-gray-600">Altitude</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-gray-600">Date</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-gray-600">Activity</th>
+                  <th className="text-center px-4 py-2 text-xs font-medium text-gray-600">Paid With</th>
                 </tr>
               </thead>
               <tbody>
-                {jumpHistory.map((j, i) => (
-                  <tr key={i} className="border-b">
-                    <td className="px-5 py-2 text-sm">{new Date(j.date).toLocaleDateString()}</td>
-                    <td className="px-5 py-2 text-sm">#{j.loadNumber}</td>
-                    <td className="px-5 py-2 text-center text-sm">{j.jumpType}</td>
-                    <td className="px-5 py-2 text-center text-sm">{(j.altitude / 1000).toFixed(1)}k</td>
+                {[...currentLoads, ...jumpHistory].map((j, i) => (
+                  <tr key={i} className="border-b hover:bg-gray-50">
+                    <td className="px-4 py-2 text-gray-500 text-xs">{new Date(j.date).toLocaleDateString()}</td>
+                    <td className="px-4 py-2">
+                      <div>Load #{j.loadNumber} &middot; {j.jumpType}</div>
+                      <div className="text-xs text-gray-500">{j.aircraftName} &middot; {(j.altitude / 1000).toFixed(1)}k ft</div>
+                    </td>
+                    <td className="px-4 py-2 text-center">
+                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">block</span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           ) : (
-            <div className="px-5 py-8 text-center text-gray-400 text-sm">No jumps yet</div>
+            <div className="px-5 py-8 text-center text-gray-400 text-sm">No activity yet</div>
           )}
         </div>
       </div>
