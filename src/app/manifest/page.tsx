@@ -245,18 +245,44 @@ export default function ManifestDashboard() {
     fetchLoads();
   }
 
-  async function advanceStatus() {
+  async function changeStatus(newStatus: string) {
     if (!selectedLoad) return;
-    const next = NEXT_STATUS[selectedLoad.status];
-    if (!next) return;
-    if (next === "in_flight" && !confirm("Advance to In Flight? Manifest will be locked.")) return;
-    const res = await fetch(`/api/loads/${selectedLoad.id}/status`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: next }),
-    });
-    const data = await res.json();
-    if (!res.ok) { setError(data.error); return; }
+    if (newStatus === selectedLoad.status) return;
+    if (newStatus === "in_flight" && !confirm("Set to In Flight? Manifest will be locked.")) return;
+
+    // Auto-advance earlier loads if needed
+    const statusOrder = ["open", "boarding", "in_flight", "landed", "closed"];
+    const newIdx = statusOrder.indexOf(newStatus);
+    const sortedLoads = [...loads].sort((a, b) => a.loadNumber - b.loadNumber);
+
+    // All loads with lower load numbers should be at least at this status or higher
+    for (const l of sortedLoads) {
+      if (l.loadNumber >= selectedLoad.loadNumber) break;
+      const lIdx = statusOrder.indexOf(l.status);
+      if (lIdx < newIdx) {
+        // Auto-advance this earlier load
+        await fetch(`/api/loads/${l.id}/status`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: newStatus }),
+        });
+      }
+    }
+
+    // Now set the selected load's status — may need to step through transitions
+    const currentIdx = statusOrder.indexOf(selectedLoad.status);
+    if (newIdx > currentIdx) {
+      // Step forward through each status
+      for (let i = currentIdx + 1; i <= newIdx; i++) {
+        const res = await fetch(`/api/loads/${selectedLoad.id}/status`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: statusOrder[i] }),
+        });
+        const data = await res.json();
+        if (!res.ok) { setError(data.error); return; }
+      }
+    }
     fetchLoads();
   }
 
@@ -464,22 +490,23 @@ export default function ManifestDashboard() {
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`px-2 py-1 rounded text-xs font-medium ${
-                    selectedLoad.status === "open" ? "bg-green-100 text-green-800" :
-                    selectedLoad.status === "boarding" ? "bg-yellow-100 text-yellow-800" :
-                    selectedLoad.status === "in_flight" ? "bg-blue-100 text-blue-800" :
-                    "bg-gray-100 text-gray-700"
-                  }`}>
-                    {STATUS_LABELS[selectedLoad.status]}
-                  </span>
-                  {NEXT_STATUS[selectedLoad.status] && (
-                    <button onClick={advanceStatus} className="bg-blue-600 text-white px-3 py-1.5 rounded text-xs hover:bg-blue-700">
-                      {selectedLoad.status === "open" ? "Start Boarding" :
-                       selectedLoad.status === "boarding" ? "Take Off" :
-                       selectedLoad.status === "in_flight" ? "Landed" :
-                       "Close"}
-                    </button>
-                  )}
+                  <select
+                    value={selectedLoad.status}
+                    onChange={(e) => changeStatus(e.target.value)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border-2 cursor-pointer ${
+                      selectedLoad.status === "open" ? "bg-green-50 border-green-300 text-green-800" :
+                      selectedLoad.status === "boarding" ? "bg-yellow-50 border-yellow-300 text-yellow-800" :
+                      selectedLoad.status === "in_flight" ? "bg-blue-50 border-blue-300 text-blue-800" :
+                      selectedLoad.status === "landed" ? "bg-gray-100 border-gray-300 text-gray-700" :
+                      "bg-gray-50 border-gray-200 text-gray-500"
+                    }`}
+                  >
+                    <option value="open">Open</option>
+                    <option value="boarding">Boarding</option>
+                    <option value="in_flight">In Flight</option>
+                    <option value="landed">Landed</option>
+                    <option value="closed">Closed</option>
+                  </select>
                 </div>
               </div>
 

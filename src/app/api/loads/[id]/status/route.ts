@@ -2,12 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 
-const VALID_TRANSITIONS: Record<string, string> = {
-  open: "boarding",
-  boarding: "in_flight",
-  in_flight: "landed",
-  landed: "closed",
-};
+const STATUS_ORDER = ["open", "boarding", "in_flight", "landed", "closed"];
 
 export async function POST(
   request: NextRequest,
@@ -19,20 +14,27 @@ export async function POST(
     const body = await request.json();
     const { status: newStatus } = body;
 
+    if (!STATUS_ORDER.includes(newStatus)) {
+      return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+    }
+
     const db = getDb();
     const load = db.prepare("SELECT * FROM loads WHERE id = ?").get(id) as { id: number; status: string } | undefined;
 
     if (!load) return NextResponse.json({ error: "Load not found" }, { status: 404 });
 
-    const expectedNext = VALID_TRANSITIONS[load.status];
-    if (newStatus !== expectedNext) {
+    const currentIdx = STATUS_ORDER.indexOf(load.status);
+    const newIdx = STATUS_ORDER.indexOf(newStatus);
+
+    // Only allow forward transitions
+    if (newIdx <= currentIdx) {
       return NextResponse.json(
-        { error: `Invalid transition: cannot go from ${load.status} to ${newStatus}` },
+        { error: `Cannot go from ${load.status} to ${newStatus}` },
         { status: 400 }
       );
     }
 
-    if (newStatus === "closed") {
+    if (newStatus === "closed" || newIdx >= STATUS_ORDER.indexOf("closed")) {
       db.prepare("UPDATE loads SET status = ?, closed_at = datetime('now') WHERE id = ?").run(newStatus, id);
     } else {
       db.prepare("UPDATE loads SET status = ? WHERE id = ?").run(newStatus, id);
