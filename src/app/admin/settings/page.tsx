@@ -12,6 +12,7 @@ interface USPAStatus {
 export default function SettingsPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [cookieStr, setCookieStr] = useState("");
   const [status, setStatus] = useState<USPAStatus | null>(null);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -30,7 +31,7 @@ export default function SettingsPage() {
       const res = await fetch("/api/uspa", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, ...(cookieStr ? { cookies: cookieStr } : {}) }),
       });
       const data = await res.json();
       if (data.valid) {
@@ -133,9 +134,21 @@ export default function SettingsPage() {
             />
           </div>
 
+          <div className="border-t pt-3 mt-3">
+            <label className="block text-sm text-gray-600 mb-1">Browser Cookies (optional — paste from DevTools if login fails)</label>
+            <textarea
+              value={cookieStr}
+              onChange={(e) => setCookieStr(e.target.value)}
+              placeholder="Paste cookie string from browser DevTools..."
+              rows={3}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            <p className="text-xs text-gray-400 mt-1">DevTools → Network → any request → Headers → Cookie value</p>
+          </div>
+
           <button
             onClick={saveCredentials}
-            disabled={saving || !email.trim() || !password.trim()}
+            disabled={saving || (!cookieStr.trim() && (!email.trim() || !password.trim()))}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
           >
             {saving ? "Connecting..." : "Save & Connect"}

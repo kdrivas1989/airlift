@@ -51,33 +51,45 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT /api/uspa — save USPA credentials and test login
+// PUT /api/uspa — save USPA credentials or cookies and test
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password } = body;
+    const { email, password, cookies } = body;
 
+    // If cookies provided directly, save and test them
+    if (cookies) {
+      setUSPACookies(cookies);
+      if (email) setUSPACredentials(email, password || "");
+
+      const testResult = await lookupMember("232363");
+      if (!testResult.found) {
+        return NextResponse.json({
+          saved: true,
+          valid: false,
+          error: testResult.error || "Cookies didn't work. They may have expired.",
+        });
+      }
+      return NextResponse.json({ saved: true, valid: true, testMember: testResult.member });
+    }
+
+    // Otherwise try credential-based login
     if (!email || !password) {
-      return NextResponse.json({ error: "Email and password required" }, { status: 400 });
+      return NextResponse.json({ error: "Email and password required (or provide cookies)" }, { status: 400 });
     }
 
     setUSPACredentials(email, password);
 
-    // Test by looking up a known member (triggers auto-login)
     const testResult = await lookupMember("232363");
     if (!testResult.found) {
       return NextResponse.json({
         saved: true,
         valid: false,
-        error: testResult.error || "Login failed. Check your credentials.",
+        error: testResult.error || "Login failed. Try pasting browser cookies instead.",
       });
     }
 
-    return NextResponse.json({
-      saved: true,
-      valid: true,
-      testMember: testResult.member,
-    });
+    return NextResponse.json({ saved: true, valid: true, testMember: testResult.member });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to save credentials";
     return NextResponse.json({ error: message }, { status: 500 });
