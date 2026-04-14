@@ -104,6 +104,7 @@ export default function ManifestDashboard() {
 
   const [groups, setGroups] = useState<JumpGroup[]>([]);
   const [showGroupCreate, setShowGroupCreate] = useState(false);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
 
   // Auto-timer state
   const [timerMode, setTimerMode] = useState<"auto" | "manual">("auto");
@@ -627,15 +628,29 @@ export default function ManifestDashboard() {
 
           {/* Today's jumpers */}
           <div className="p-3 border-b">
-            <h2 className="font-bold text-sm mb-2">Today&apos;s Jumpers</h2>
-            <JumperSearch
-              onSelect={(j) => { checkInJumper(j); }}
-              placeholder="Check in jumper..."
-            />
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="font-bold text-sm">Today&apos;s Jumpers</h2>
+              <button onClick={() => setShowQuickAdd(!showQuickAdd)} className="text-blue-600 text-xs hover:underline">
+                {showQuickAdd ? "Cancel" : "+ New"}
+              </button>
+            </div>
+            {showQuickAdd && (
+              <QuickAddJumper onCreated={(id) => {
+                setShowQuickAdd(false);
+                checkInJumper({ id } as { id: number });
+                fetchCheckedIn();
+              }} />
+            )}
+            {!showQuickAdd && (
+              <JumperSearch
+                onSelect={(j) => { checkInJumper(j); }}
+                placeholder="Check in jumper..."
+              />
+            )}
           </div>
 
           <div className="flex-1 overflow-y-auto">
-            {checkedIn.map((j) => {
+            {[...checkedIn].sort((a, b) => `${a.lastName}${a.firstName}`.localeCompare(`${b.lastName}${b.firstName}`)).map((j) => {
               const onLoad = manifestedJumperIds.has(j.id);
               return (
                 <div
@@ -838,6 +853,54 @@ function GroupCreateForm({ checkedIn, onCreated }: { checkedIn: CheckedInJumper[
         Create Group ({selected.size})
       </button>
     </div>
+  );
+}
+
+function QuickAddJumper({ onCreated }: { onCreated: (id: number) => void }) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    const form = new FormData(e.currentTarget);
+    const res = await fetch("/api/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        firstName: form.get("firstName"),
+        lastName: form.get("lastName"),
+        email: form.get("email"),
+        password: form.get("password") || "temp1234",
+        dateOfBirth: "1990-01-01",
+        weight: Number(form.get("weight")) || 180,
+        licenseLevel: "unknown",
+      }),
+    });
+    const data = await res.json();
+    setSaving(false);
+    if (!res.ok) { setError(data.error); return; }
+    onCreated(data.jumperId);
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-2">
+      {error && <div className="text-red-600 text-xs">{error}</div>}
+      <div className="flex gap-2">
+        <input name="firstName" required placeholder="First" className="flex-1 border rounded px-2 py-1 text-xs" />
+        <input name="lastName" required placeholder="Last" className="flex-1 border rounded px-2 py-1 text-xs" />
+      </div>
+      <input name="email" type="email" required placeholder="Email" className="w-full border rounded px-2 py-1 text-xs" />
+      <div className="flex gap-2">
+        <input name="weight" type="number" placeholder="Weight lbs" defaultValue="180" className="flex-1 border rounded px-2 py-1 text-xs" />
+        <input name="password" type="password" placeholder="Password (opt)" className="flex-1 border rounded px-2 py-1 text-xs" />
+      </div>
+      <button type="submit" disabled={saving}
+        className="w-full bg-blue-600 text-white text-xs py-1.5 rounded hover:bg-blue-700 disabled:opacity-50">
+        {saving ? "Adding..." : "Add & Check In"}
+      </button>
+    </form>
   );
 }
 
