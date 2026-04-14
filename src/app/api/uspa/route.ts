@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { lookupMember, lookupMemberByName, verifyAndUpdateJumper, setUSPACredentials, getUSPAStatus } from "@/lib/uspa";
+import { lookupMember, lookupMemberByName, verifyAndUpdateJumper, setUSPACredentials, setUSPACookies, getUSPAStatus } from "@/lib/uspa";
 
 // GET /api/uspa — check USPA integration status
 export async function GET() {
