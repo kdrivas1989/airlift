@@ -53,6 +53,7 @@ interface CheckedInJumper {
   checkedInAt: string;
   checkinType: string;
   paperworkComplete: boolean;
+  personType: string;
 }
 
 interface JumpGroup {
@@ -433,21 +434,22 @@ export default function ManifestDashboard() {
                 onDragOver={(e) => onDragOverLoad(e, load.id)}
                 onDragLeave={onDragLeaveLoad}
                 onDrop={(e) => onDropOnLoad(e, load.id)}
-                className={`w-full text-left rounded-lg border-2 p-3 transition text-sm ${
+                className={`w-full text-left rounded-xl border p-3 transition-all text-sm shadow-sm hover:shadow ${
                   selectedLoadId === load.id
-                    ? "border-blue-500 bg-blue-50 ring-1 ring-blue-300"
+                    ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200 shadow-md"
                     : dragOverLoad === load.id
-                    ? "border-blue-400 bg-blue-50"
-                    : STATUS_COLORS[load.status]
+                    ? "border-blue-400 bg-blue-50 shadow-md"
+                    : load.status === "open" ? "border-green-200 bg-white hover:border-green-300"
+                    : load.status === "in_flight" ? "border-blue-200 bg-blue-50/50 hover:border-blue-300"
+                    : "border-gray-200 bg-gray-50 hover:border-gray-300"
                 }`}
               >
                 <div className="flex justify-between items-center mb-1">
                   <span className="font-bold">Load #{load.loadNumber}</span>
-                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
-                    load.status === "open" ? "bg-green-200 text-green-800" :
-                    load.status === "boarding" ? "bg-yellow-200 text-yellow-800" :
-                    load.status === "in_flight" ? "bg-blue-200 text-blue-800" :
-                    "bg-gray-200 text-gray-700"
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                    load.status === "open" ? "bg-green-100 text-green-700 ring-1 ring-green-200" :
+                    load.status === "in_flight" ? "bg-blue-100 text-blue-700 ring-1 ring-blue-200" :
+                    "bg-gray-100 text-gray-600 ring-1 ring-gray-200"
                   }`}>
                     {STATUS_LABELS[load.status]}
                   </span>
@@ -476,7 +478,7 @@ export default function ManifestDashboard() {
           {selectedLoad ? (
             <>
               {/* Load header */}
-              <div className="p-4 border-b bg-white flex items-center justify-between">
+              <div className="p-4 border-b bg-gradient-to-r from-white to-gray-50 flex items-center justify-between shadow-sm">
                 <div>
                   <h1 className="text-xl font-bold">Load #{selectedLoad.loadNumber}</h1>
                   <p className="text-sm text-gray-600">
@@ -522,7 +524,7 @@ export default function ManifestDashboard() {
               {/* Manifest table */}
               <div className="flex-1 overflow-y-auto">
                 <table className="w-full">
-                  <thead className="bg-gray-50 border-b sticky top-0">
+                  <thead className="bg-gray-100/80 border-b sticky top-0 backdrop-blur-sm">
                     <tr>
                       <th className="text-center px-3 py-2 text-xs font-medium text-gray-600 w-10">#</th>
                       <th className="text-left px-3 py-2 text-xs font-medium text-gray-600">Name</th>
@@ -538,17 +540,41 @@ export default function ManifestDashboard() {
                       <tr key={entry.id} className="border-b hover:bg-gray-50">
                         <td className="text-center px-3 py-2 text-sm font-mono">{entry.exitOrder}</td>
                         <td className="px-3 py-2 text-sm font-medium">
-                          {entry.jumper.firstName} {entry.jumper.lastName}
-                          {entry.pairedWith && (
-                            <span className="text-[10px] text-purple-600 ml-1">w/ {entry.pairedWith.firstName} {entry.pairedWith.lastName[0]}.</span>
-                          )}
-                          {(entry.jumpType === "tandem" || entry.jumpType === "coach") && !entry.pairedWith && (
-                            <span className="text-[10px] text-red-500 ml-1">no instructor</span>
-                          )}
+                          <div>{entry.jumper.firstName} {entry.jumper.lastName}</div>
+                          {(entry.jumpType === "tandem" || entry.jumpType === "coach") && editable ? (
+                            <select
+                              value={entry.pairedWith?.id || ""}
+                              onChange={async (e) => {
+                                const val = e.target.value ? Number(e.target.value) : null;
+                                await fetch(`/api/loads/${selectedLoad.id}/manifest`, {
+                                  method: "PATCH",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ entryId: entry.id, pairedWith: val }),
+                                });
+                                fetchLoads();
+                              }}
+                              className={`mt-0.5 text-[10px] border rounded px-1 py-0.5 w-full ${entry.pairedWith ? "border-purple-300 text-purple-700" : "border-red-300 text-red-600"}`}
+                            >
+                              <option value="">-- assign instructor --</option>
+                              {checkedIn.filter(j => (j.personType || "").includes("staff")).map((s) => (
+                                <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>
+                              ))}
+                            </select>
+                          ) : entry.pairedWith ? (
+                            <span className="text-[10px] text-purple-600">w/ {entry.pairedWith.firstName} {entry.pairedWith.lastName[0]}.</span>
+                          ) : (entry.jumpType === "tandem" || entry.jumpType === "coach") ? (
+                            <span className="text-[10px] text-red-500">no instructor</span>
+                          ) : null}
                         </td>
                         <td className="text-center px-3 py-2 text-sm text-gray-600">{entry.jumper.weight}</td>
                         <td className="text-center px-3 py-2 text-sm">
-                          <span className="bg-gray-100 px-2 py-0.5 rounded text-xs">
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                            entry.jumpType === "tandem" ? "bg-purple-100 text-purple-700" :
+                            entry.jumpType === "aff" ? "bg-amber-100 text-amber-700" :
+                            entry.jumpType === "coach" ? "bg-teal-100 text-teal-700" :
+                            entry.jumpType === "hop_n_pop" ? "bg-orange-100 text-orange-700" :
+                            "bg-gray-100 text-gray-700"
+                          }`}>
                             {JUMP_TYPES.find((t) => t.value === entry.jumpType)?.label || entry.jumpType}
                           </span>
                         </td>
