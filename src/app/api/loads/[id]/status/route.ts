@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 
-const STATUS_ORDER = ["open", "boarding", "in_flight", "landed", "closed"];
+const STATUS_ORDER = ["open", "in_flight", "landed"];
 
 export async function POST(
   request: NextRequest,

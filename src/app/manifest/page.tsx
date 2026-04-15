@@ -60,25 +60,14 @@ interface JumpGroup {
 
 const STATUS_COLORS: Record<string, string> = {
   open: "border-green-400 bg-green-50",
-  boarding: "border-yellow-400 bg-yellow-50",
   in_flight: "border-blue-400 bg-blue-50",
   landed: "border-gray-300 bg-gray-50",
-  closed: "border-gray-200 bg-gray-50",
 };
 
 const STATUS_LABELS: Record<string, string> = {
   open: "Open",
-  boarding: "Boarding",
   in_flight: "In Flight",
   landed: "Landed",
-  closed: "Closed",
-};
-
-const NEXT_STATUS: Record<string, string> = {
-  open: "boarding",
-  boarding: "in_flight",
-  in_flight: "landed",
-  landed: "closed",
 };
 
 const JUMP_TYPES = [
@@ -113,7 +102,7 @@ export default function ManifestDashboard() {
   const cycleMinutes = Number(flightTime || 0) + Number(taxiTime || 0);
 
   const fetchLoads = useCallback(() => {
-    fetch("/api/loads?status=open,boarding,in_flight,landed")
+    fetch("/api/loads?status=open,in_flight,landed")
       .then((r) => r.json())
       .then((data) => setLoads(data.loads || []))
       .catch(() => {});
@@ -142,19 +131,19 @@ export default function ManifestDashboard() {
   // Auto-select first open load
   useEffect(() => {
     if (selectedLoadId === null && loads.length > 0) {
-      const open = loads.find((l) => l.status === "open" || l.status === "boarding");
+      const open = loads.find((l) => l.status === "open");
       if (open) setSelectedLoadId(open.id);
       else setSelectedLoadId(loads[0].id);
     }
   }, [loads, selectedLoadId]);
 
   const selectedLoad = loads.find((l) => l.id === selectedLoadId) || null;
-  const editable = selectedLoad?.status === "open" || selectedLoad?.status === "boarding";
+  const editable = selectedLoad?.status === "open";
 
   // Check which jumpers are already on any active load
   const manifestedJumperIds = new Set(
     loads.flatMap((l) =>
-      ["open", "boarding"].includes(l.status) ? l.manifest.map((m) => m.jumper.id) : []
+      l.status === "open" ? l.manifest.map((m) => m.jumper.id) : []
     )
   );
 
@@ -166,7 +155,7 @@ export default function ManifestDashboard() {
     let departureMinutes = 0;
     if (timerMode === "auto") {
       // Find the last load's departure time and add cycleMinutes
-      const openLoads = loads.filter((l) => ["open", "boarding"].includes(l.status));
+      const openLoads = loads.filter((l) => l.status === "open");
       const lastDep = openLoads
         .filter((l) => l.departureTime)
         .map((l) => new Date(l.departureTime!).getTime())
@@ -252,7 +241,7 @@ export default function ManifestDashboard() {
     if (newStatus === "in_flight" && !confirm("Set to In Flight? Manifest will be locked.")) return;
 
     // Auto-advance earlier loads if needed
-    const statusOrder = ["open", "boarding", "in_flight", "landed", "closed"];
+    const statusOrder = ["open", "in_flight", "landed"];
     const newIdx = statusOrder.indexOf(newStatus);
     const sortedLoads = [...loads].sort((a, b) => a.loadNumber - b.loadNumber);
 
@@ -404,12 +393,19 @@ export default function ManifestDashboard() {
                 ))}
               </select>
               <div className="flex gap-2">
-                <input name="fuelWeight" type="number" min="0" defaultValue="500" placeholder="Fuel lbs" className="w-1/2 border rounded px-2 py-1 text-sm" />
-                <input name="defaultAltitude" type="number" min="3000" defaultValue="13500" placeholder="Alt ft" className="w-1/2 border rounded px-2 py-1 text-sm" />
+                <div className="w-1/2">
+                  <label className="text-[10px] text-gray-500">Fuel (lbs)</label>
+                  <input name="fuelWeight" type="number" min="0" defaultValue="500" className="w-full border rounded px-2 py-1 text-sm" />
+                </div>
+                <div className="w-1/2">
+                  <label className="text-[10px] text-gray-500">Altitude (ft)</label>
+                  <input name="defaultAltitude" type="number" min="3000" defaultValue="13500" className="w-full border rounded px-2 py-1 text-sm" />
+                </div>
               </div>
               {timerMode === "manual" && (
                 <div>
-                  <input name="departureMinutes" type="number" min="0" defaultValue="20" placeholder="Min to departure" className="w-full border rounded px-2 py-1 text-sm" />
+                  <label className="text-[10px] text-gray-500">Minutes to departure</label>
+                  <input name="departureMinutes" type="number" min="0" defaultValue="20" className="w-full border rounded px-2 py-1 text-sm" />
                 </div>
               )}
               {timerMode === "auto" && (
@@ -496,17 +492,13 @@ export default function ManifestDashboard() {
                     onChange={(e) => changeStatus(e.target.value)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium border-2 cursor-pointer ${
                       selectedLoad.status === "open" ? "bg-green-50 border-green-300 text-green-800" :
-                      selectedLoad.status === "boarding" ? "bg-yellow-50 border-yellow-300 text-yellow-800" :
                       selectedLoad.status === "in_flight" ? "bg-blue-50 border-blue-300 text-blue-800" :
-                      selectedLoad.status === "landed" ? "bg-gray-100 border-gray-300 text-gray-700" :
-                      "bg-gray-50 border-gray-200 text-gray-500"
+                      "bg-gray-100 border-gray-300 text-gray-700"
                     }`}
                   >
                     <option value="open">Open</option>
-                    <option value="boarding">Boarding</option>
                     <option value="in_flight">In Flight</option>
                     <option value="landed">Landed</option>
-                    <option value="closed">Closed</option>
                   </select>
                 </div>
               </div>
@@ -793,7 +785,7 @@ function SetDepartureButton({ loadId, loadNumber, loads, cycleMinutes, onSet, ha
     // Cascade to all later loads
     if (cycleMinutes > 0) {
       const laterLoads = loads
-        .filter((l) => l.loadNumber > loadNumber && ["open", "boarding"].includes(l.status))
+        .filter((l) => l.loadNumber > loadNumber && l.status === "open")
         .sort((a, b) => a.loadNumber - b.loadNumber);
 
       let prevDep = newDepTime.getTime();

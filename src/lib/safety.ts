@@ -123,7 +123,7 @@ export function checkDoubleBooking(
     SELECT l.id, l.load_number
     FROM manifest_entries me
     JOIN loads l ON l.id = me.load_id
-    WHERE me.jumper_id = ? AND l.status IN ('open', 'boarding')
+    WHERE me.jumper_id = ? AND l.status = 'open'
   `;
   const params: (number | undefined)[] = [jumperId];
 
@@ -200,7 +200,7 @@ export function checkLoadEditable(db: Database.Database, loadId: number): Safety
   const load = db.prepare("SELECT status FROM loads WHERE id = ?").get(loadId) as { status: string } | undefined;
   if (!load) return { ok: false, error: "Load not found" };
 
-  if (load.status !== "open" && load.status !== "boarding") {
+  if (load.status !== "open") {
     return { ok: false, error: `Cannot modify manifest \u2014 load is ${load.status.replace("_", " ")}` };
   }
   return { ok: true };
