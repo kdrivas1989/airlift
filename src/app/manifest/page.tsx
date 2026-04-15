@@ -487,7 +487,7 @@ export default function ManifestDashboard() {
                     <DepartureCountdown departureTime={selectedLoad.departureTime} />
                   )}
                   {editable && (
-                    <SetDepartureButton loadId={selectedLoad.id} onSet={() => fetchLoads()} hasExisting={!!selectedLoad.departureTime} />
+                    <SetDepartureButton loadId={selectedLoad.id} loadNumber={selectedLoad.loadNumber} loads={loads} cycleMinutes={cycleMinutes} onSet={() => fetchLoads()} hasExisting={!!selectedLoad.departureTime} />
                   )}
                 </div>
                 <div className="flex items-center gap-2">
@@ -771,18 +771,44 @@ function DepartureCountdown({ departureTime, compact }: { departureTime: string;
   );
 }
 
-function SetDepartureButton({ loadId, onSet, hasExisting }: { loadId: number; onSet: () => void; hasExisting?: boolean }) {
+function SetDepartureButton({ loadId, loadNumber, loads, cycleMinutes, onSet, hasExisting }: {
+  loadId: number; loadNumber: number; loads: LoadData[]; cycleMinutes: number;
+  onSet: () => void; hasExisting?: boolean;
+}) {
   const [mins, setMins] = useState("20");
   const [show, setShow] = useState(!hasExisting);
 
   async function set() {
     const m = Number(mins);
     if (!m || m <= 0) return;
+
+    // Set this load's departure
+    const newDepTime = new Date(Date.now() + m * 60 * 1000);
     await fetch(`/api/loads/${loadId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ departureMinutes: m }),
     });
+
+    // Cascade to all later loads
+    if (cycleMinutes > 0) {
+      const laterLoads = loads
+        .filter((l) => l.loadNumber > loadNumber && ["open", "boarding"].includes(l.status))
+        .sort((a, b) => a.loadNumber - b.loadNumber);
+
+      let prevDep = newDepTime.getTime();
+      for (const l of laterLoads) {
+        const nextDep = prevDep + cycleMinutes * 60 * 1000;
+        const minsFromNow = Math.max(1, Math.round((nextDep - Date.now()) / 60000));
+        await fetch(`/api/loads/${l.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ departureMinutes: minsFromNow }),
+        });
+        prevDep = nextDep;
+      }
+    }
+
     setShow(false);
     onSet();
   }
