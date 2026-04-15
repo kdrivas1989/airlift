@@ -334,7 +334,7 @@ export default function ManifestDashboard() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-3.5rem)]">
+    <div className="flex flex-col h-full">
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 text-sm mx-2 mt-2 rounded-lg">
           {error}
