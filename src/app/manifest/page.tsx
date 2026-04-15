@@ -19,6 +19,7 @@ interface ManifestEntry {
   altitude: number;
   exitOrder: number;
   ticketPrice: number;
+  pairedWith: { id: number; firstName: string; lastName: string } | null;
 }
 
 interface LoadData {
@@ -50,6 +51,8 @@ interface CheckedInJumper {
   uspaActive: boolean;
   canManifest: boolean;
   checkedInAt: string;
+  checkinType: string;
+  paperworkComplete: boolean;
 }
 
 interface JumpGroup {
@@ -94,6 +97,8 @@ export default function ManifestDashboard() {
   const [groups, setGroups] = useState<JumpGroup[]>([]);
   const [showGroupCreate, setShowGroupCreate] = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [rightTab, setRightTab] = useState<"jumpers" | "tandems">("jumpers");
+  const [tandemStandby, setTandemStandby] = useState<CheckedInJumper[]>([]);
 
   // Auto-timer state
   const [timerMode, setTimerMode] = useState<"auto" | "manual">("auto");
@@ -532,7 +537,15 @@ export default function ManifestDashboard() {
                     {[...selectedLoad.manifest].sort((a, b) => a.exitOrder - b.exitOrder).map((entry) => (
                       <tr key={entry.id} className="border-b hover:bg-gray-50">
                         <td className="text-center px-3 py-2 text-sm font-mono">{entry.exitOrder}</td>
-                        <td className="px-3 py-2 text-sm font-medium">{entry.jumper.firstName} {entry.jumper.lastName}</td>
+                        <td className="px-3 py-2 text-sm font-medium">
+                          {entry.jumper.firstName} {entry.jumper.lastName}
+                          {entry.pairedWith && (
+                            <span className="text-[10px] text-purple-600 ml-1">w/ {entry.pairedWith.firstName} {entry.pairedWith.lastName[0]}.</span>
+                          )}
+                          {(entry.jumpType === "tandem" || entry.jumpType === "coach") && !entry.pairedWith && (
+                            <span className="text-[10px] text-red-500 ml-1">no instructor</span>
+                          )}
+                        </td>
                         <td className="text-center px-3 py-2 text-sm text-gray-600">{entry.jumper.weight}</td>
                         <td className="text-center px-3 py-2 text-sm">
                           <span className="bg-gray-100 px-2 py-0.5 rounded text-xs">
@@ -571,6 +584,25 @@ export default function ManifestDashboard() {
 
         {/* RIGHT COLUMN — Groups + Today's Jumpers */}
         <div className="w-72 border-l bg-gray-50 flex flex-col overflow-hidden">
+          {/* Right panel tabs */}
+          <div className="flex border-b">
+            <button onClick={() => setRightTab("jumpers")}
+              className={`flex-1 py-2 text-xs font-medium ${rightTab === "jumpers" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500"}`}>
+              Jumpers
+            </button>
+            <button onClick={() => setRightTab("tandems")}
+              className={`flex-1 py-2 text-xs font-medium relative ${rightTab === "tandems" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500"}`}>
+              Tandems
+              {checkedIn.filter(j => j.checkinType === "tandem" && !manifestedJumperIds.has(j.id)).length > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] rounded-full w-4 h-4 flex items-center justify-center">
+                  {checkedIn.filter(j => j.checkinType === "tandem" && !manifestedJumperIds.has(j.id)).length}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {rightTab === "jumpers" && (
+            <>
           {/* Groups */}
           <div className="border-b">
             <div className="p-2 flex items-center justify-between">
@@ -621,7 +653,7 @@ export default function ManifestDashboard() {
           {/* Today's jumpers */}
           <div className="p-3 border-b">
             <div className="flex items-center justify-between mb-2">
-              <h2 className="font-bold text-sm">Today&apos;s Jumpers</h2>
+              <h2 className="font-bold text-sm">Jumpers</h2>
               <button onClick={() => setShowQuickAdd(!showQuickAdd)} className="text-blue-600 text-xs hover:underline">
                 {showQuickAdd ? "Cancel" : "+ New"}
               </button>
@@ -642,7 +674,7 @@ export default function ManifestDashboard() {
           </div>
 
           <div className="flex-1 overflow-y-auto">
-            {[...checkedIn].sort((a, b) => `${a.lastName}${a.firstName}`.localeCompare(`${b.lastName}${b.firstName}`)).map((j) => {
+            {[...checkedIn].filter(j => j.checkinType !== "tandem").sort((a, b) => `${a.lastName}${a.firstName}`.localeCompare(`${b.lastName}${b.firstName}`)).map((j) => {
               const onLoad = manifestedJumperIds.has(j.id);
               return (
                 <div
@@ -703,12 +735,86 @@ export default function ManifestDashboard() {
                 </div>
               );
             })}
-            {checkedIn.length === 0 && (
+            {checkedIn.filter(j => j.checkinType !== "tandem").length === 0 && (
               <div className="text-center py-8 text-gray-400 text-xs px-4">
                 No jumpers checked in today.<br />Search above to check someone in.
               </div>
             )}
           </div>
+            </>
+          )}
+
+          {rightTab === "tandems" && (
+            <>
+              <div className="p-3 border-b">
+                <h2 className="font-bold text-sm mb-2">Tandem Check-In</h2>
+                <JumperSearch
+                  onSelect={(j) => {
+                    fetch("/api/checkin", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ jumperId: j.id, checkinType: "tandem" }),
+                    }).then(() => fetchCheckedIn());
+                  }}
+                  placeholder="Search tandem customer..."
+                />
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                {/* Standby — paperwork complete, waiting for instructor */}
+                {checkedIn.filter(j => j.checkinType === "tandem").length > 0 ? (
+                  [...checkedIn]
+                    .filter(j => j.checkinType === "tandem")
+                    .sort((a, b) => `${a.lastName}`.localeCompare(`${b.lastName}`))
+                    .map((j) => {
+                      const onLoad = manifestedJumperIds.has(j.id);
+                      return (
+                        <div key={j.id} className={`border-b px-3 py-2 text-sm ${onLoad ? "bg-gray-100 opacity-50" : "bg-white"}`}>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="font-medium">{j.firstName} {j.lastName}</span>
+                              <span className="text-xs text-gray-500 ml-2">{j.weight} lbs</span>
+                              {onLoad && <span className="text-[10px] text-gray-400 ml-1">(on load)</span>}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {!j.paperworkComplete && !onLoad && (
+                                <button
+                                  onClick={() => {
+                                    fetch("/api/checkin", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ jumperId: j.id, checkinType: "tandem", paperworkComplete: true }),
+                                    }).then(() => fetchCheckedIn());
+                                  }}
+                                  className="text-[10px] bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded hover:bg-yellow-200"
+                                >
+                                  Confirm Paperwork
+                                </button>
+                              )}
+                              {j.paperworkComplete && !onLoad && (
+                                <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded">Ready</span>
+                              )}
+                              {j.paperworkComplete && !onLoad && editable && selectedLoadId && (
+                                <button
+                                  onClick={() => addJumperToLoad(j.id, selectedLoadId)}
+                                  className="text-blue-600 hover:text-blue-800 text-lg font-bold"
+                                >+</button>
+                              )}
+                            </div>
+                          </div>
+                          {j.paperworkComplete && !onLoad && (
+                            <div className="text-[10px] text-orange-600 mt-0.5">Standby — waiting for instructor assignment</div>
+                          )}
+                        </div>
+                      );
+                    })
+                ) : (
+                  <div className="text-center py-8 text-gray-400 text-xs px-4">
+                    No tandem customers checked in.<br />Search above to check in a tandem.
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
 

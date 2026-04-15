@@ -141,6 +141,8 @@ function initSchema(db: Database.Database) {
       jumper_id INTEGER NOT NULL REFERENCES jumpers(id),
       date TEXT NOT NULL DEFAULT (date('now')),
       checked_in_at TEXT NOT NULL DEFAULT (datetime('now')),
+      checkin_type TEXT NOT NULL DEFAULT 'fun',
+      paperwork_complete INTEGER NOT NULL DEFAULT 0,
       UNIQUE(jumper_id, date)
     );
     CREATE INDEX IF NOT EXISTS idx_checkins_date ON checkins(date);
@@ -198,6 +200,19 @@ function migrate(db: Database.Database) {
   const loadColNames = loadCols.map(c => c.name);
   if (!loadColNames.includes("departure_time")) {
     db.exec("ALTER TABLE loads ADD COLUMN departure_time TEXT");
+  }
+
+  // Add checkin_type and paperwork_complete to checkins
+  const ciCols = db.prepare("PRAGMA table_info(checkins)").all() as Array<{ name: string }>;
+  if (!ciCols.map(c => c.name).includes("checkin_type")) {
+    db.exec("ALTER TABLE checkins ADD COLUMN checkin_type TEXT NOT NULL DEFAULT 'fun'");
+    db.exec("ALTER TABLE checkins ADD COLUMN paperwork_complete INTEGER NOT NULL DEFAULT 0");
+  }
+
+  // Add paired_with (instructor) to manifest_entries
+  const meCols0 = db.prepare("PRAGMA table_info(manifest_entries)").all() as Array<{ name: string }>;
+  if (!meCols0.map(c => c.name).includes("paired_with")) {
+    db.exec("ALTER TABLE manifest_entries ADD COLUMN paired_with INTEGER REFERENCES jumpers(id)");
   }
 
   // Add payment_method to manifest_entries

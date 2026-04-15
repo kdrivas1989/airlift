@@ -29,9 +29,11 @@ export async function GET(request: NextRequest) {
 
     const result = loads.map((load) => {
       const manifest = db.prepare(`
-        SELECT me.*, j.first_name, j.last_name, j.weight, j.id as jumper_id
+        SELECT me.*, j.first_name, j.last_name, j.weight, j.id as jumper_id,
+          pi.first_name as paired_first, pi.last_name as paired_last
         FROM manifest_entries me
         JOIN jumpers j ON j.id = me.jumper_id
+        LEFT JOIN jumpers pi ON pi.id = me.paired_with
         WHERE me.load_id = ?
         ORDER BY me.exit_order
       `).all(load.id) as Array<Record<string, unknown>>;
@@ -66,6 +68,7 @@ export async function GET(request: NextRequest) {
           exitOrder: m.exit_order,
           ticketPrice: m.ticket_price,
           paymentMethod: m.payment_method || "block",
+          pairedWith: m.paired_with ? { id: m.paired_with, firstName: m.paired_first, lastName: m.paired_last } : null,
         })),
       };
     });

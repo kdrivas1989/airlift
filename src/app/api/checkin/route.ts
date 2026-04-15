@@ -8,7 +8,7 @@ export async function GET() {
     const db = getDb();
 
     const rows = db.prepare(`
-      SELECT j.*, c.checked_in_at,
+      SELECT j.*, c.checked_in_at, c.checkin_type, c.paperwork_complete,
         (SELECT COUNT(*) FROM waivers w WHERE w.jumper_id = j.id) > 0 as has_waiver
       FROM checkins c
       JOIN jumpers j ON j.id = c.jumper_id
@@ -42,6 +42,8 @@ export async function GET() {
         uspaActive,
         canManifest: hasWaiver && !reserveExpired && !!j.reserve_pack_date && uspaActive,
         checkedInAt: j.checked_in_at,
+        checkinType: (j.checkin_type as string) || "fun",
+        paperworkComplete: (j.paperwork_complete as number) === 1,
       };
     });
 
@@ -57,7 +59,7 @@ export async function POST(request: NextRequest) {
   try {
     await requireAuth();
     const db = getDb();
-    const { jumperId } = await request.json();
+    const { jumperId, checkinType, paperworkComplete } = await request.json();
 
     if (!jumperId) return NextResponse.json({ error: "Jumper ID required" }, { status: 400 });
 
@@ -65,9 +67,21 @@ export async function POST(request: NextRequest) {
     if (!jumper) return NextResponse.json({ error: "Jumper not found" }, { status: 404 });
 
     try {
-      db.prepare("INSERT INTO checkins (jumper_id) VALUES (?)").run(jumperId);
+      db.prepare("INSERT INTO checkins (jumper_id, checkin_type, paperwork_complete) VALUES (?, ?, ?)").run(
+        jumperId, checkinType || "fun", paperworkComplete ? 1 : 0
+      );
     } catch {
-      // Already checked in today (UNIQUE constraint)
+      // Already checked in — update type if provided
+      if (checkinType || paperworkComplete !== undefined) {
+        const fields: string[] = [];
+        const vals: unknown[] = [];
+        if (checkinType) { fields.push("checkin_type = ?"); vals.push(checkinType); }
+        if (paperworkComplete !== undefined) { fields.push("paperwork_complete = ?"); vals.push(paperworkComplete ? 1 : 0); }
+        if (fields.length > 0) {
+          vals.push(jumperId);
+          db.prepare(`UPDATE checkins SET ${fields.join(", ")} WHERE jumper_id = ? AND date = date('now')`).run(...vals);
+        }
+      }
       return NextResponse.json({ ok: true, alreadyCheckedIn: true });
     }
 

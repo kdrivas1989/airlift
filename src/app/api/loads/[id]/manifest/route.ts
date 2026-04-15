@@ -12,7 +12,7 @@ export async function POST(
     const { id } = await params;
     const loadId = Number(id);
     const body = await request.json();
-    const { jumperId, jumpType, altitude } = body;
+    const { jumperId, jumpType, altitude, pairedWith } = body;
 
     if (!jumperId || !jumpType) {
       return NextResponse.json({ error: "Jumper and jump type required" }, { status: 400 });
@@ -43,9 +43,9 @@ export async function POST(
     ).get(jumpType) as { price: number } | undefined;
 
     const result = db.prepare(`
-      INSERT INTO manifest_entries (load_id, jumper_id, jump_type, altitude, exit_order, ticket_price)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(loadId, jumperId, jumpType, altitude || load.default_altitude, maxOrder.max_order + 1, pricing?.price || 0);
+      INSERT INTO manifest_entries (load_id, jumper_id, jump_type, altitude, exit_order, ticket_price, paired_with)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(loadId, jumperId, jumpType, altitude || load.default_altitude, maxOrder.max_order + 1, pricing?.price || 0, pairedWith || null);
 
     const entry = db.prepare("SELECT * FROM manifest_entries WHERE id = ?").get(result.lastInsertRowid);
     const stats = getLoadStats(db, loadId);
