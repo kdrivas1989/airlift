@@ -1,193 +1,145 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import JumperSearch from "@/components/JumperSearch";
 
-interface TandemCustomer {
+interface ReceptionEntry {
   id: number;
-  firstName: string;
-  lastName: string;
+  jumper_id: number;
+  status: string;
+  source: string;
+  booking_ref: string | null;
+  first_name: string;
+  last_name: string;
   email: string;
   phone: string | null;
   weight: number;
-  checkedInAt: string;
-  paperworkComplete: boolean;
+  has_waiver: number;
+  emergency_contact_name: string | null;
+  photo_package: number;
+  video_package: number;
+  handcam_package: number;
+  payment_status: string;
+  instructor_id: number | null;
+  instructor_first_name: string | null;
+  instructor_last_name: string | null;
+  load_id: number | null;
+  load_number: number | null;
+  notes: string | null;
+  created_at: string;
 }
+
+interface LoadOption { id: number; loadNumber: number; aircraft: string; slotsAvailable: number; }
+interface InstructorOption { id: number; firstName: string; lastName: string; }
+
+const STATUS_CFG: Record<string, { label: string; bg: string; text: string }> = {
+  booked: { label: "Booked", bg: "bg-blue-100", text: "text-blue-800" },
+  checked_in: { label: "Checked In", bg: "bg-yellow-100", text: "text-yellow-800" },
+  standby: { label: "Standby", bg: "bg-orange-100", text: "text-orange-800" },
+  paired: { label: "Paired", bg: "bg-purple-100", text: "text-purple-800" },
+  manifested: { label: "On Load", bg: "bg-green-100", text: "text-green-800" },
+};
+const COLUMNS = ["booked", "checked_in", "standby", "paired", "manifested"] as const;
 
 export default function ReceptionPage() {
-  const [customers, setCustomers] = useState<TandemCustomer[]>([]);
-  const [showAdd, setShowAdd] = useState(false);
+  const [entries, setEntries] = useState<ReceptionEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showWalkIn, setShowWalkIn] = useState(false);
+  const [wf, setWf] = useState({ firstName: "", lastName: "", email: "", phone: "", dateOfBirth: "", weight: "", emergencyContactName: "", emergencyContactPhone: "", photoPackage: false, videoPackage: false, handcamPackage: false, paymentStatus: "unpaid", notes: "" });
+  const [walkInError, setWalkInError] = useState("");
+  const [pairModal, setPairModal] = useState<number | null>(null);
+  const [instructors, setInstructors] = useState<InstructorOption[]>([]);
+  const [manifestModal, setManifestModal] = useState<number | null>(null);
+  const [loads, setLoads] = useState<LoadOption[]>([]);
+  const [err, setErr] = useState("");
 
-  const fetchCustomers = useCallback(() => {
-    fetch("/api/checkin")
-      .then((r) => r.json())
-      .then((data) => {
-        const tandems = (data.jumpers || []).filter((j: Record<string, unknown>) => j.checkinType === "tandem");
-        setCustomers(tandems);
-      });
+  const refresh = useCallback(async () => {
+    const r = await fetch("/api/reception"); if (r.ok) { const d = await r.json(); setEntries(d.entries); } setLoading(false);
   }, []);
+  useEffect(() => { refresh(); const i = setInterval(refresh, 5000); return () => clearInterval(i); }, [refresh]);
 
-  useEffect(() => {
-    fetchCustomers();
-    const interval = setInterval(fetchCustomers, 5000);
-    return () => clearInterval(interval);
-  }, [fetchCustomers]);
-
-  async function checkInTandem(jumper: { id: number }) {
-    await fetch("/api/checkin", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jumperId: jumper.id, checkinType: "tandem" }),
-    });
-    fetchCustomers();
-    setShowAdd(false);
+  async function handleWalkIn(e: React.FormEvent) {
+    e.preventDefault(); setWalkInError("");
+    const r = await fetch("/api/reception", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(wf) });
+    if (r.ok) { setShowWalkIn(false); setWf({ firstName: "", lastName: "", email: "", phone: "", dateOfBirth: "", weight: "", emergencyContactName: "", emergencyContactPhone: "", photoPackage: false, videoPackage: false, handcamPackage: false, paymentStatus: "unpaid", notes: "" }); refresh(); }
+    else { const d = await r.json(); setWalkInError(d.error || "Failed"); }
   }
+  async function updateStatus(id: number, status: string) { setErr(""); const r = await fetch(`/api/reception/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) }); if (r.ok) refresh(); else { const d = await r.json(); setErr(d.error || "Failed"); } }
+  async function openPair(id: number) { setErr(""); const r = await fetch("/api/checkin?date=" + new Date().toISOString().split("T")[0]); if (r.ok) { const d = await r.json(); const used = new Set(entries.filter(x => x.instructor_id && !["cancelled","manifested"].includes(x.status)).map(x => x.instructor_id)); setInstructors((d.jumpers||[]).filter((j: Record<string,unknown>) => ((j.jumperType as string)==="tandem_instructor"||(j.licenseLevel as string)==="Tandem") && !used.has(j.id as number)).map((j: Record<string,unknown>) => ({id: j.id as number, firstName: j.firstName as string, lastName: j.lastName as string}))); } setPairModal(id); }
+  async function handlePair(eid: number, tid: number) { setErr(""); const r = await fetch(`/api/reception/${eid}/pair`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ instructorId: tid }) }); if (r.ok) { setPairModal(null); refresh(); } else { const d = await r.json(); setErr(d.error||"Failed"); } }
+  async function openManifest(id: number) { setErr(""); const r = await fetch("/api/loads?status=open"); if (r.ok) { const d = await r.json(); setLoads((d.loads||[]).map((l: Record<string,unknown>) => ({id: l.id, loadNumber: l.loadNumber, aircraft: (l.aircraft as Record<string,unknown>)?.tailNumber||"?", slotsAvailable: l.slotsAvailable}))); } setManifestModal(id); }
+  async function handleManifest(eid: number, lid: number) { setErr(""); const r = await fetch(`/api/reception/${eid}/manifest`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ loadId: lid }) }); if (r.ok) { setManifestModal(null); refresh(); } else { const d = await r.json(); setErr(d.error||"Failed"); } }
+  async function handleCancel(id: number) { if (!confirm("Cancel this tandem?")) return; await fetch(`/api/reception/${id}`, { method: "DELETE" }); refresh(); }
 
-  async function confirmPaperwork(jumperId: number) {
-    await fetch("/api/checkin", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jumperId, checkinType: "tandem", paperworkComplete: true }),
-    });
-    fetchCustomers();
-  }
-
-  async function sendToManifest(jumperId: number) {
-    // Paperwork already confirmed — they show up in manifest's tandem standby
-    confirmPaperwork(jumperId);
-  }
-
-  const waiting = customers.filter((c) => !c.paperworkComplete);
-  const ready = customers.filter((c) => c.paperworkComplete);
+  if (loading) return <div className="text-gray-500 text-center py-12">Loading...</div>;
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div>
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Reception</h1>
-          <p className="text-sm text-gray-500">Tandem customer check-in and paperwork</p>
-        </div>
-        <button onClick={() => setShowAdd(!showAdd)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">
-          {showAdd ? "Cancel" : "+ Check In Customer"}
-        </button>
+        <div><h1 className="text-2xl font-bold text-gray-900">Tandem Reception</h1><p className="text-sm text-gray-500">{entries.length} today</p></div>
+        <button onClick={() => setShowWalkIn(true)} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">+ Walk-In</button>
       </div>
+      {err && <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{err} <button onClick={() => setErr("")} className="ml-2 font-bold">&times;</button></div>}
 
-      {showAdd && (
-        <div className="bg-white rounded-xl border p-4 mb-6">
-          <h3 className="text-sm font-medium mb-2">Search existing customer or create new</h3>
-          <JumperSearch onSelect={checkInTandem} placeholder="Search by name or email..." />
-          <div className="mt-3 border-t pt-3">
-            <QuickTandemAdd onCreated={(id) => { checkInTandem({ id }); }} />
-          </div>
-        </div>
-      )}
-
-      {/* Waiting for paperwork */}
-      <div className="bg-white rounded-xl border overflow-hidden mb-6">
-        <div className="px-5 py-3 border-b bg-yellow-50">
-          <h2 className="font-semibold text-yellow-800">Waiting for Paperwork ({waiting.length})</h2>
-        </div>
-        {waiting.length > 0 ? (
-          <div className="divide-y">
-            {waiting.map((c) => (
-              <div key={c.id} className="px-5 py-4 flex items-center justify-between">
-                <div>
-                  <div className="font-medium">{c.firstName} {c.lastName}</div>
-                  <div className="text-sm text-gray-500">
-                    {c.weight} lbs &middot; Arrived {new Date(c.checkedInAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    {c.phone && <span> &middot; {c.phone}</span>}
+      <div className="grid grid-cols-5 gap-3 min-h-[60vh]">
+        {COLUMNS.map(col => { const items = entries.filter(e => e.status === col); const c = STATUS_CFG[col]; return (
+          <div key={col} className="bg-gray-100 rounded-xl p-3">
+            <div className="flex items-center justify-between mb-3"><span className={`px-2 py-1 rounded-full text-xs font-bold ${c.bg} ${c.text}`}>{c.label}</span><span className="text-xs text-gray-400">{items.length}</span></div>
+            <div className="space-y-2">
+              {items.map(e => (
+                <div key={e.id} className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
+                  <div className="flex items-start justify-between mb-1">
+                    <p className="font-semibold text-gray-900 text-sm">{e.first_name} {e.last_name}</p>
+                    <div className="flex gap-0.5">
+                      {e.has_waiver ? <span className="w-4 h-4 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-[10px]" title="Waiver">W</span> : <span className="w-4 h-4 bg-red-100 text-red-600 rounded-full flex items-center justify-center text-[10px]" title="No waiver">!</span>}
+                      {e.source==="booking" && <span className="w-4 h-4 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-[10px]" title={`Ref: ${e.booking_ref}`}>B</span>}
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-gray-500 mb-1">{e.weight} lbs</p>
+                  {(e.photo_package||e.video_package||e.handcam_package) && <div className="flex gap-1 mb-1">{e.photo_package?<span className="px-1 py-0.5 bg-pink-100 text-pink-700 rounded text-[9px] font-medium">Photo</span>:null}{e.video_package?<span className="px-1 py-0.5 bg-violet-100 text-violet-700 rounded text-[9px] font-medium">Video</span>:null}{e.handcam_package?<span className="px-1 py-0.5 bg-cyan-100 text-cyan-700 rounded text-[9px] font-medium">Handcam</span>:null}</div>}
+                  <span className={`px-1 py-0.5 rounded text-[9px] font-medium ${e.payment_status==="paid"?"bg-green-100 text-green-700":e.payment_status==="deposit"?"bg-yellow-100 text-yellow-700":"bg-red-100 text-red-700"}`}>{e.payment_status}</span>
+                  {e.instructor_first_name && <p className="text-[11px] text-purple-600 mt-1">TI: {e.instructor_first_name} {e.instructor_last_name}</p>}
+                  {e.load_number!=null && <p className="text-[11px] text-green-600 mt-0.5">Load #{e.load_number}</p>}
+                  <div className="flex gap-1 flex-wrap mt-2">
+                    {col==="booked" && <button onClick={() => updateStatus(e.id,"checked_in")} className="px-2 py-1 bg-yellow-500 text-white rounded text-[11px] font-medium">Check In</button>}
+                    {col==="checked_in" && <button onClick={() => updateStatus(e.id,"standby")} className="px-2 py-1 bg-orange-500 text-white rounded text-[11px] font-medium">Ready</button>}
+                    {col==="standby" && <button onClick={() => openPair(e.id)} className="px-2 py-1 bg-purple-500 text-white rounded text-[11px] font-medium">Pair TI</button>}
+                    {col==="paired" && <button onClick={() => openManifest(e.id)} className="px-2 py-1 bg-green-600 text-white rounded text-[11px] font-medium">Add to Load</button>}
+                    {col!=="manifested" && <button onClick={() => handleCancel(e.id)} className="px-1.5 py-1 text-red-500 text-[11px]">Cancel</button>}
                   </div>
                 </div>
-                <button onClick={() => confirmPaperwork(c.id)}
-                  className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700">
-                  Paperwork Complete
-                </button>
-              </div>
-            ))}
+              ))}
+              {items.length===0 && <p className="text-xs text-gray-400 text-center py-4">Empty</p>}
+            </div>
           </div>
-        ) : (
-          <div className="px-5 py-8 text-center text-gray-400 text-sm">No customers waiting</div>
-        )}
+        ); })}
       </div>
 
-      {/* Ready for manifest */}
-      <div className="bg-white rounded-xl border overflow-hidden">
-        <div className="px-5 py-3 border-b bg-green-50">
-          <h2 className="font-semibold text-green-800">Ready for Manifest ({ready.length})</h2>
-        </div>
-        {ready.length > 0 ? (
-          <div className="divide-y">
-            {ready.map((c) => (
-              <div key={c.id} className="px-5 py-4 flex items-center justify-between">
-                <div>
-                  <div className="font-medium">{c.firstName} {c.lastName}</div>
-                  <div className="text-sm text-gray-500">
-                    {c.weight} lbs &middot; Arrived {new Date(c.checkedInAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="bg-green-100 text-green-700 px-3 py-1 rounded text-xs font-medium">Ready</span>
-                  <button onClick={() => sendToManifest(c.id)}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">
-                    Send to Manifest
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="px-5 py-8 text-center text-gray-400 text-sm">No customers ready yet</div>
-        )}
-      </div>
+      {showWalkIn && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"><div className="bg-white rounded-xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-xl">
+        <h2 className="text-lg font-bold text-gray-900 mb-4">Walk-In Tandem</h2>
+        {walkInError && <p className="text-red-600 text-sm mb-3">{walkInError}</p>}
+        <form onSubmit={handleWalkIn} className="space-y-3">
+          <div className="grid grid-cols-2 gap-3"><div><label className="block text-xs font-medium text-gray-600 mb-1">First Name *</label><input type="text" value={wf.firstName} onChange={e=>setWf({...wf,firstName:e.target.value})} required className="w-full border border-gray-300 rounded px-3 py-2 text-sm" /></div><div><label className="block text-xs font-medium text-gray-600 mb-1">Last Name *</label><input type="text" value={wf.lastName} onChange={e=>setWf({...wf,lastName:e.target.value})} required className="w-full border border-gray-300 rounded px-3 py-2 text-sm" /></div></div>
+          <div className="grid grid-cols-2 gap-3"><div><label className="block text-xs font-medium text-gray-600 mb-1">Email</label><input type="email" value={wf.email} onChange={e=>setWf({...wf,email:e.target.value})} className="w-full border border-gray-300 rounded px-3 py-2 text-sm" /></div><div><label className="block text-xs font-medium text-gray-600 mb-1">Phone</label><input type="tel" value={wf.phone} onChange={e=>setWf({...wf,phone:e.target.value})} className="w-full border border-gray-300 rounded px-3 py-2 text-sm" /></div></div>
+          <div className="grid grid-cols-2 gap-3"><div><label className="block text-xs font-medium text-gray-600 mb-1">DOB *</label><input type="date" value={wf.dateOfBirth} onChange={e=>setWf({...wf,dateOfBirth:e.target.value})} required className="w-full border border-gray-300 rounded px-3 py-2 text-sm" /></div><div><label className="block text-xs font-medium text-gray-600 mb-1">Weight (lbs) *</label><input type="number" value={wf.weight} onChange={e=>setWf({...wf,weight:e.target.value})} required className="w-full border border-gray-300 rounded px-3 py-2 text-sm" /></div></div>
+          <div className="grid grid-cols-2 gap-3"><div><label className="block text-xs font-medium text-gray-600 mb-1">Emergency Name</label><input type="text" value={wf.emergencyContactName} onChange={e=>setWf({...wf,emergencyContactName:e.target.value})} className="w-full border border-gray-300 rounded px-3 py-2 text-sm" /></div><div><label className="block text-xs font-medium text-gray-600 mb-1">Emergency Phone</label><input type="tel" value={wf.emergencyContactPhone} onChange={e=>setWf({...wf,emergencyContactPhone:e.target.value})} className="w-full border border-gray-300 rounded px-3 py-2 text-sm" /></div></div>
+          <div><label className="block text-xs font-medium text-gray-600 mb-2">Add-Ons</label><div className="flex gap-4"><label className="flex items-center gap-1.5 text-sm"><input type="checkbox" checked={wf.photoPackage} onChange={e=>setWf({...wf,photoPackage:e.target.checked})} className="rounded" /> Photo</label><label className="flex items-center gap-1.5 text-sm"><input type="checkbox" checked={wf.videoPackage} onChange={e=>setWf({...wf,videoPackage:e.target.checked})} className="rounded" /> Video</label><label className="flex items-center gap-1.5 text-sm"><input type="checkbox" checked={wf.handcamPackage} onChange={e=>setWf({...wf,handcamPackage:e.target.checked})} className="rounded" /> Handcam</label></div></div>
+          <div><label className="block text-xs font-medium text-gray-600 mb-1">Payment</label><select value={wf.paymentStatus} onChange={e=>setWf({...wf,paymentStatus:e.target.value})} className="w-full border border-gray-300 rounded px-3 py-2 text-sm"><option value="unpaid">Unpaid</option><option value="deposit">Deposit</option><option value="paid">Paid</option></select></div>
+          <div><label className="block text-xs font-medium text-gray-600 mb-1">Notes</label><textarea value={wf.notes} onChange={e=>setWf({...wf,notes:e.target.value})} rows={2} className="w-full border border-gray-300 rounded px-3 py-2 text-sm" /></div>
+          <div className="flex gap-3 pt-2"><button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 text-sm">Register</button><button type="button" onClick={()=>setShowWalkIn(false)} className="px-4 py-2 text-gray-600 text-sm">Cancel</button></div>
+        </form>
+      </div></div>}
+
+      {pairModal && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"><div className="bg-white rounded-xl p-6 max-w-md w-full shadow-xl">
+        <h2 className="text-lg font-bold text-gray-900 mb-4">Pair with TI</h2>
+        {instructors.length===0 ? <p className="text-gray-500 text-sm mb-4">No available TIs.</p> : <div className="space-y-2 mb-4 max-h-60 overflow-y-auto">{instructors.map(ti=><button key={ti.id} onClick={()=>handlePair(pairModal,ti.id)} className="w-full text-left px-4 py-3 rounded-lg border border-gray-200 hover:border-purple-400 hover:bg-purple-50"><p className="font-medium text-gray-900 text-sm">{ti.firstName} {ti.lastName}</p></button>)}</div>}
+        <button onClick={()=>setPairModal(null)} className="text-sm text-gray-500">Cancel</button>
+      </div></div>}
+
+      {manifestModal && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"><div className="bg-white rounded-xl p-6 max-w-md w-full shadow-xl">
+        <h2 className="text-lg font-bold text-gray-900 mb-4">Add to Load</h2>
+        {loads.length===0 ? <p className="text-gray-500 text-sm mb-4">No open loads.</p> : <div className="space-y-2 mb-4 max-h-60 overflow-y-auto">{loads.filter(l=>l.slotsAvailable>=2).map(l=><button key={l.id} onClick={()=>handleManifest(manifestModal,l.id)} className="w-full text-left px-4 py-3 rounded-lg border border-gray-200 hover:border-green-400 hover:bg-green-50"><p className="font-medium text-gray-900 text-sm">Load #{l.loadNumber} ({l.aircraft})</p><p className="text-xs text-gray-500">{l.slotsAvailable} slots</p></button>)}</div>}
+        <button onClick={()=>setManifestModal(null)} className="text-sm text-gray-500">Cancel</button>
+      </div></div>}
     </div>
-  );
-}
-
-function QuickTandemAdd({ onCreated }: { onCreated: (id: number) => void }) {
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-
-  async function submit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setSaving(true);
-    setError("");
-    const form = new FormData(e.currentTarget);
-    const res = await fetch("/api/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        firstName: form.get("firstName"),
-        lastName: form.get("lastName"),
-        email: form.get("email") || `tandem-${Date.now()}@walk-in.local`,
-        password: "tandem123",
-        dateOfBirth: "1990-01-01",
-        weight: Number(form.get("weight")) || 180,
-        licenseLevel: "unknown",
-      }),
-    });
-    const data = await res.json();
-    setSaving(false);
-    if (!res.ok) { setError(data.error); return; }
-    onCreated(data.jumperId);
-  }
-
-  return (
-    <form onSubmit={submit} className="space-y-2">
-      <p className="text-xs text-gray-500 font-medium">Or add new walk-in customer:</p>
-      {error && <div className="text-red-600 text-xs">{error}</div>}
-      <div className="flex gap-2">
-        <input name="firstName" required placeholder="First name" className="flex-1 border rounded px-3 py-2 text-sm" />
-        <input name="lastName" required placeholder="Last name" className="flex-1 border rounded px-3 py-2 text-sm" />
-      </div>
-      <div className="flex gap-2">
-        <input name="email" type="email" placeholder="Email (optional)" className="flex-1 border rounded px-3 py-2 text-sm" />
-        <input name="weight" type="number" placeholder="Weight lbs" defaultValue="180" className="w-28 border rounded px-3 py-2 text-sm" />
-      </div>
-      <button type="submit" disabled={saving}
-        className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50">
-        {saving ? "Adding..." : "Add & Check In"}
-      </button>
-    </form>
   );
 }

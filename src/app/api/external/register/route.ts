@@ -84,6 +84,18 @@ export async function POST(request: NextRequest) {
     ).run(jumperId, addedCash, "credit", `Alter Ego booking ${bookingRef || ""}: $${balanceAmount.toFixed(2)}`);
   }
 
+  // Create tandem reception entry if tandem jumps purchased
+  if ((tandemJumps || 0) > 0) {
+    const existingReception = db.prepare(
+      "SELECT id FROM tandem_reception WHERE jumper_id = ? AND date = date('now')"
+    ).get(jumperId);
+    if (!existingReception) {
+      db.prepare(
+        "INSERT INTO tandem_reception (jumper_id, date, status, source, booking_ref) VALUES (?, date('now'), 'booked', 'booking', ?)"
+      ).run(jumperId, bookingRef || null);
+    }
+  }
+
   // Fetch updated state
   const updated = db.prepare(
     "SELECT id, first_name, last_name, email, balance, jump_block_remaining FROM jumpers WHERE id = ?"

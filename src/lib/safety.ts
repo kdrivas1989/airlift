@@ -169,11 +169,16 @@ export function runAllChecks(
   loadId: number,
   jumperId: number
 ): SafetyResult {
-  const uspaCheck = checkUSPA(db, jumperId);
-  if (!uspaCheck.ok) return uspaCheck;
+  const jumperInfo = db.prepare("SELECT jumper_type FROM jumpers WHERE id = ?").get(jumperId) as { jumper_type: string } | undefined;
+  const isTandemPassenger = jumperInfo?.jumper_type === "tandem_passenger";
 
-  const reserveCheck = checkReserve(db, jumperId);
-  if (!reserveCheck.ok) return reserveCheck;
+  if (!isTandemPassenger) {
+    const uspaCheck = checkUSPA(db, jumperId);
+    if (!uspaCheck.ok) return uspaCheck;
+
+    const reserveCheck = checkReserve(db, jumperId);
+    if (!reserveCheck.ok) return reserveCheck;
+  }
 
   const waiverCheck = checkWaiver(db, jumperId);
   if (!waiverCheck.ok) return waiverCheck;

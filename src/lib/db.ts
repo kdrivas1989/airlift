@@ -170,6 +170,31 @@ function initSchema(db: Database.Database) {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_balance_txn_jumper ON balance_transactions(jumper_id);
+
+    CREATE TABLE IF NOT EXISTS tandem_reception (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      jumper_id INTEGER NOT NULL REFERENCES jumpers(id),
+      date TEXT NOT NULL DEFAULT (date('now')),
+      status TEXT NOT NULL DEFAULT 'booked' CHECK(status IN ('booked', 'checked_in', 'standby', 'paired', 'manifested', 'cancelled')),
+      source TEXT NOT NULL DEFAULT 'booking' CHECK(source IN ('booking', 'walkin')),
+      booking_ref TEXT,
+      emergency_contact_name TEXT,
+      emergency_contact_phone TEXT,
+      photo_package INTEGER NOT NULL DEFAULT 0,
+      video_package INTEGER NOT NULL DEFAULT 0,
+      handcam_package INTEGER NOT NULL DEFAULT 0,
+      addon_total INTEGER NOT NULL DEFAULT 0,
+      payment_status TEXT NOT NULL DEFAULT 'unpaid' CHECK(payment_status IN ('unpaid', 'deposit', 'paid')),
+      payment_notes TEXT,
+      instructor_id INTEGER REFERENCES jumpers(id),
+      load_id INTEGER REFERENCES loads(id),
+      notes TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(jumper_id, date)
+    );
+    CREATE INDEX IF NOT EXISTS idx_tandem_reception_date ON tandem_reception(date);
+    CREATE INDEX IF NOT EXISTS idx_tandem_reception_status ON tandem_reception(status);
   `);
 
   migrate(db);
