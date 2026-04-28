@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     const statuses = statusParam.split(",").map((s) => s.trim());
 
     let query = `
-      SELECT l.*, a.tail_number, a.name as aircraft_name, a.slot_count, a.max_gross_weight, a.empty_weight
+      SELECT l.*, a.tail_number, a.name as aircraft_name, a.slot_count, a.max_gross_weight, a.empty_weight, a.reserved_organizer_slots
       FROM loads l
       JOIN aircraft a ON a.id = l.aircraft_id
       WHERE l.status IN (${statuses.map(() => "?").join(",")})
@@ -58,6 +58,8 @@ export async function GET(request: NextRequest) {
         departureTime: load.departure_time || null,
         slotsUsed: manifest.length,
         slotsAvailable: (load.slot_count as number) - manifest.length,
+        reservedOrganizerSlots: (load.reserved_organizer_slots as number) || 0,
+        openSlots: (load.slot_count as number) - ((load.reserved_organizer_slots as number) || 0) - manifest.filter(m => m.jump_type !== "organizer").length,
         currentWeight,
         maxWeight: load.max_gross_weight,
         manifest: manifest.map((m) => ({

@@ -288,6 +288,12 @@ function migrate(db: Database.Database) {
     db.exec("ALTER TABLE jumpers ADD COLUMN ratings TEXT");
   }
 
+  // Add reserved_organizer_slots to aircraft
+  const acCols = db.prepare("PRAGMA table_info(aircraft)").all() as Array<{ name: string }>;
+  if (!acCols.map(c => c.name).includes("reserved_organizer_slots")) {
+    db.exec("ALTER TABLE aircraft ADD COLUMN reserved_organizer_slots INTEGER NOT NULL DEFAULT 0");
+  }
+
   // Add videographer_id to tandem_reception
   try {
     const trCols = db.prepare("PRAGMA table_info(tandem_reception)").all() as Array<{ name: string }>;
@@ -333,6 +339,6 @@ function seed(db: Database.Database) {
   if (aircraftCount.count === 0) {
     db.prepare(
       "INSERT INTO aircraft (tail_number, name, slot_count, empty_weight, max_gross_weight) VALUES (?, ?, ?, ?, ?)"
-    ).run("4R-ACA", "Y-12", 17, 6835, 11684);
+    ).run("4R-ACA", "Y-12", 13, 6835, 11684);
   }
 }

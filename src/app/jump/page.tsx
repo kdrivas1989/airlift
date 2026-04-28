@@ -8,6 +8,7 @@ interface LoadData {
   aircraft: { tailNumber: string; name: string; slotCount: number };
   slotsUsed: number;
   slotsAvailable: number;
+  openSlots: number;
   status: string;
   departureTime: string | null;
   defaultAltitude: number;
@@ -147,7 +148,7 @@ export default function JumpPage() {
       <div className="space-y-3">
         {loads.filter(l => l.status === "open").map(load => {
           const onThis = myLoadIds.has(load.id);
-          const full = load.slotsAvailable <= 0;
+          const full = load.openSlots <= 0;
           return (
             <div key={load.id} className={`bg-white rounded-xl border p-4 ${onThis ? "border-blue-400 ring-2 ring-blue-100" : ""}`}>
               <div className="flex items-center justify-between mb-2">
@@ -156,7 +157,9 @@ export default function JumpPage() {
                   <span className="text-sm text-gray-500 ml-2">{load.aircraft.tailNumber} {load.aircraft.name && `- ${load.aircraft.name}`}</span>
                 </div>
                 <div className="text-right">
-                  <div className="text-sm font-medium">{load.slotsUsed}/{load.aircraft.slotCount}</div>
+                  <div className={`text-sm font-medium ${load.openSlots <= 0 ? "text-red-600" : load.openSlots <= 3 ? "text-orange-600" : ""}`}>
+                    {Math.max(0, load.openSlots)} open
+                  </div>
                   <div className="text-[10px] text-gray-500">slots</div>
                 </div>
               </div>

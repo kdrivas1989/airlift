@@ -15,6 +15,7 @@ interface AircraftRow {
   empty_weight: number;
   max_gross_weight: number;
   slot_count: number;
+  reserved_organizer_slots: number;
 }
 
 interface LoadRow {
@@ -93,8 +94,9 @@ export function checkWeight(
 
 /**
  * Check if load has available slots.
+ * Organizers can use all slots; regular jumpers are limited to (total - reserved_organizer_slots).
  */
-export function checkSlots(db: Database.Database, loadId: number): SafetyResult {
+export function checkSlots(db: Database.Database, loadId: number, jumpType?: string): SafetyResult {
   const load = db.prepare("SELECT * FROM loads WHERE id = ?").get(loadId) as LoadRow | undefined;
   if (!load) return { ok: false, error: "Load not found" };
 
@@ -105,9 +107,34 @@ export function checkSlots(db: Database.Database, loadId: number): SafetyResult 
     "SELECT COUNT(*) as count FROM manifest_entries WHERE load_id = ?"
   ).get(loadId) as { count: number };
 
-  if (entryCount.count >= aircraft.slot_count) {
-    return { ok: false, error: "No slots available" };
+  const isOrganizer = jumpType === "organizer";
+  const maxSlots = isOrganizer
+    ? aircraft.slot_count
+    : aircraft.slot_count - (aircraft.reserved_organizer_slots || 0);
+
+  // For non-organizers, count non-organizer entries against the reduced limit
+  if (!isOrganizer) {
+    const regularCount = db.prepare(
+      "SELECT COUNT(*) as count FROM manifest_entries WHERE load_id = ? AND jump_type != 'organizer'"
+    ).get(loadId) as { count: number };
+    if (regularCount.count >= maxSlots) {
+      return { ok: false, error: "No slots available" };
+    }
+  } else {
+    // Organizers check against total
+    const organizerCount = db.prepare(
+      "SELECT COUNT(*) as count FROM manifest_entries WHERE load_id = ? AND jump_type = 'organizer'"
+    ).get(loadId) as { count: number };
+    if (organizerCount.count >= (aircraft.reserved_organizer_slots || 0)) {
+      return { ok: false, error: "All organizer slots are full" };
+    }
   }
+
+  // Hard cap: nobody can exceed total slot count
+  if (entryCount.count >= aircraft.slot_count) {
+    return { ok: false, error: "Aircraft is full" };
+  }
+
   return { ok: true };
 }
 
@@ -167,7 +194,8 @@ export function checkUSPA(db: Database.Database, jumperId: number): SafetyResult
 export function runAllChecks(
   db: Database.Database,
   loadId: number,
-  jumperId: number
+  jumperId: number,
+  jumpType?: string
 ): SafetyResult {
   const checkin = db.prepare(
     "SELECT checkin_type FROM checkins WHERE jumper_id = ? AND date = date('now') LIMIT 1"
@@ -191,7 +219,7 @@ export function runAllChecks(
   const weightCheck = checkWeight(db, loadId, jumper.weight);
   if (!weightCheck.ok) return weightCheck;
 
-  const slotCheck = checkSlots(db, loadId);
+  const slotCheck = checkSlots(db, loadId, jumpType);
   if (!slotCheck.ok) return slotCheck;
 
   // Allow jumpers on multiple loads (boogie style)

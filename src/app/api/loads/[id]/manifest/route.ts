@@ -25,7 +25,7 @@ export async function POST(
     if (!editable.ok) return NextResponse.json({ error: editable.error }, { status: 400 });
 
     // Run all safety checks
-    const safety = runAllChecks(db, loadId, jumperId);
+    const safety = runAllChecks(db, loadId, jumperId, jumpType);
     if (!safety.ok) {
       const status = safety.error?.includes("already manifested") ? 409 : 400;
       return NextResponse.json({ error: safety.error }, { status });

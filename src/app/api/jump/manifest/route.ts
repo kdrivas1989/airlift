@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
   if (!editable.ok) return NextResponse.json({ error: editable.error }, { status: 400 });
 
   // Run safety checks
-  const safety = runAllChecks(db, loadId, jumperId);
+  const safety = runAllChecks(db, loadId, jumperId, jumpType);
   if (!safety.ok) return NextResponse.json({ error: safety.error }, { status: 400 });
 
   // Get next exit order
