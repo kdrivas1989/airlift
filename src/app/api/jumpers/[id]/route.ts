@@ -57,6 +57,12 @@ export async function PATCH(
     if (body.phone !== undefined) { fields.push("phone = ?"); values.push(body.phone); }
     if (body.licenseLevel !== undefined) { fields.push("license_level = ?"); values.push(body.licenseLevel); }
     if (body.uspaNumber !== undefined) { fields.push("uspa_number = ?"); values.push(body.uspaNumber); }
+    if (body.uspaStatus !== undefined) { fields.push("uspa_status = ?"); values.push(body.uspaStatus || null); }
+    if (body.uspaExpiry !== undefined) { fields.push("uspa_expiry = ?"); values.push(body.uspaExpiry || null); }
+    if (body.uspaVerified !== undefined) {
+      fields.push("uspa_verified_at = ?");
+      values.push(body.uspaVerified ? new Date().toISOString() : null);
+    }
     if (body.personType !== undefined) { fields.push("person_type = ?"); values.push(body.personType); }
     if (body.staffRole !== undefined) { fields.push("staff_role = ?"); values.push(body.staffRole); }
     if (body.staffActive !== undefined) { fields.push("staff_active = ?"); values.push(body.staffActive ? 1 : 0); }
