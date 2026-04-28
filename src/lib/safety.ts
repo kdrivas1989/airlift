@@ -169,8 +169,10 @@ export function runAllChecks(
   loadId: number,
   jumperId: number
 ): SafetyResult {
-  const jumperInfo = db.prepare("SELECT jumper_type FROM jumpers WHERE id = ?").get(jumperId) as { jumper_type: string } | undefined;
-  const isTandemPassenger = jumperInfo?.jumper_type === "tandem_passenger";
+  const checkin = db.prepare(
+    "SELECT checkin_type FROM checkins WHERE jumper_id = ? AND date = date('now') LIMIT 1"
+  ).get(jumperId) as { checkin_type: string } | undefined;
+  const isTandemPassenger = checkin?.checkin_type === "tandem";
 
   if (!isTandemPassenger) {
     const uspaCheck = checkUSPA(db, jumperId);
