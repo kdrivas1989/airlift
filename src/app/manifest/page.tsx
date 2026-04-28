@@ -860,7 +860,34 @@ export default function ManifestDashboard() {
                             </div>
                           </div>
                           {j.paperworkComplete && !onLoad && (
-                            <div className="text-[10px] text-orange-600 mt-0.5">Standby — waiting for instructor assignment</div>
+                            <select
+                              defaultValue=""
+                              onChange={async (e) => {
+                                if (!e.target.value || !selectedLoadId || !editable) return;
+                                const tiId = Number(e.target.value);
+                                await addJumperToLoad(j.id, selectedLoadId);
+                                // Patch the manifest entry to set paired_with
+                                const loadData = loads.find(l => l.id === selectedLoadId);
+                                if (loadData) {
+                                  const entry = loadData.manifest.find(m => m.jumper.id === j.id);
+                                  if (entry) {
+                                    await fetch(`/api/loads/${selectedLoadId}/manifest`, {
+                                      method: "PATCH",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ entryId: entry.id, pairedWith: tiId }),
+                                    });
+                                  }
+                                }
+                                fetchLoads();
+                                fetchCheckedIn();
+                              }}
+                              className="mt-1 w-full text-[11px] border border-orange-300 text-orange-700 rounded px-1 py-0.5"
+                            >
+                              <option value="">Assign instructor...</option>
+                              {checkedIn.filter(s => (s.personType || "").includes("staff") && !manifestedJumperIds.has(s.id)).map(s => (
+                                <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>
+                              ))}
+                            </select>
                           )}
                         </div>
                       );
