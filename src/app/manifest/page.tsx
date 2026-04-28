@@ -887,7 +887,7 @@ export default function ManifestDashboard() {
                       style={{ border: 0 }}
                       loading="lazy"
                       referrerPolicy="no-referrer-when-downgrade"
-                      src={`https://www.google.com/maps/embed/v1/view?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&center=${dzLat},${dzLng}&zoom=17&maptype=satellite`}
+                      src={`https://www.google.com/maps/embed/v1/view?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || ""}&center=${dzLat},${dzLng}&zoom=17&maptype=satellite`}
                     />
                   </div>
                 </>
