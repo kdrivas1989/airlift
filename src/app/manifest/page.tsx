@@ -37,6 +37,8 @@ interface LoadData {
   status: string;
   slotsUsed: number;
   slotsAvailable: number;
+  reservedOrganizerSlots: number;
+  openSlots: number;
   currentWeight: number;
   maxWeight: number;
   manifest: ManifestEntry[];
@@ -471,9 +473,12 @@ export default function ManifestDashboard() {
                   </span>
                 </div>
                 <div className="text-xs text-gray-600">{load.aircraft.tailNumber}</div>
-                <div className="text-xs text-gray-500 mt-1">
-                  {load.slotsUsed}/{load.aircraft.slotCount} slots
-                  {load.slotsAvailable === 0 && <span className="text-red-600 font-bold ml-1">FULL</span>}
+                <div className="text-xs text-gray-500 mt-1 flex gap-2">
+                  <span className="text-blue-700 font-medium">P:{Math.max(0, load.openSlots)}</span>
+                  {load.reservedOrganizerSlots > 0 && (
+                    <span className="text-emerald-700 font-medium">R:{load.reservedOrganizerSlots - load.manifest.filter(m => m.jumpType === "organizer").length}</span>
+                  )}
+                  {load.slotsAvailable === 0 && <span className="text-red-600 font-bold">FULL</span>}
                 </div>
                 <WeightGauge current={load.currentWeight} max={load.maxWeight} compact />
                 {load.departureTime && <DepartureCountdown departureTime={load.departureTime} compact />}
@@ -499,9 +504,23 @@ export default function ManifestDashboard() {
                   <h1 className="text-xl font-bold">Load #{selectedLoad.loadNumber}</h1>
                   <p className="text-sm text-gray-600">
                     {selectedLoad.aircraft.tailNumber} {selectedLoad.aircraft.name && `- ${selectedLoad.aircraft.name}`}
-                    &nbsp;&middot;&nbsp;{selectedLoad.slotsUsed}/{selectedLoad.aircraft.slotCount} slots
                     &nbsp;&middot;&nbsp;{selectedLoad.currentWeight.toLocaleString()}/{selectedLoad.maxWeight.toLocaleString()} lbs
                   </p>
+                  <div className="flex gap-3 mt-1">
+                    <div className={`px-3 py-1 rounded-lg text-xs font-bold ${
+                      selectedLoad.openSlots > 0 ? "bg-blue-100 text-blue-800" : "bg-red-100 text-red-800"
+                    }`}>
+                      Public: {Math.max(0, selectedLoad.openSlots)}
+                    </div>
+                    {selectedLoad.reservedOrganizerSlots > 0 && (
+                      <div className={`px-3 py-1 rounded-lg text-xs font-bold ${
+                        (selectedLoad.reservedOrganizerSlots - selectedLoad.manifest.filter(m => m.jumpType === "organizer").length) > 0
+                          ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-600"
+                      }`}>
+                        Reserved: {selectedLoad.reservedOrganizerSlots - selectedLoad.manifest.filter(m => m.jumpType === "organizer").length}
+                      </div>
+                    )}
+                  </div>
                   {selectedLoad.departureTime && (
                     <DepartureCountdown departureTime={selectedLoad.departureTime} />
                   )}
