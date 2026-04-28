@@ -50,6 +50,8 @@ export async function PATCH(
     const fields: string[] = [];
     const values: unknown[] = [];
 
+    if (body.firstName !== undefined) { fields.push("first_name = ?"); values.push(body.firstName); }
+    if (body.lastName !== undefined) { fields.push("last_name = ?"); values.push(body.lastName); }
     if (body.weight !== undefined) { fields.push("weight = ?"); values.push(body.weight); }
     if (body.reservePackDate !== undefined) { fields.push("reserve_pack_date = ?"); values.push(body.reservePackDate); }
     if (body.phone !== undefined) { fields.push("phone = ?"); values.push(body.phone); }
