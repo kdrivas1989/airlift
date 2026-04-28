@@ -36,29 +36,19 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const passengerDouble = checkDoubleBooking(db, jumperId, loadId);
   if (!passengerDouble.ok) return NextResponse.json({ error: `Passenger: ${passengerDouble.error}` }, { status: 400 });
-  const instructorDouble = checkDoubleBooking(db, instructorId, loadId);
-  if (!instructorDouble.ok) return NextResponse.json({ error: `Instructor: ${instructorDouble.error}` }, { status: 400 });
 
   const maxOrder = db.prepare("SELECT COALESCE(MAX(exit_order), 0) as max_order FROM manifest_entries WHERE load_id = ?").get(loadId) as { max_order: number };
   const nextOrder = maxOrder.max_order + 1;
 
   const tandemPrice = db.prepare("SELECT price FROM jump_type_pricing WHERE jump_type = 'tandem'").get() as { price: number } | undefined;
-  const tiPrice = db.prepare("SELECT price FROM jump_type_pricing WHERE jump_type = 'tandem_instructor'").get() as { price: number } | undefined;
-
-  const maxGroup = db.prepare("SELECT COALESCE(MAX(group_id), 0) as max_group FROM manifest_entries WHERE load_id = ?").get(loadId) as { max_group: number };
-  const groupId = maxGroup.max_group + 1;
 
   db.prepare(
-    "INSERT INTO manifest_entries (load_id, jumper_id, jump_type, altitude, exit_order, ticket_price, group_id, role) VALUES (?, ?, 'tandem', 14000, ?, ?, ?, 'passenger')"
-  ).run(loadId, jumperId, nextOrder, tandemPrice?.price || 0, groupId);
-
-  db.prepare(
-    "INSERT INTO manifest_entries (load_id, jumper_id, jump_type, altitude, exit_order, ticket_price, group_id, role) VALUES (?, ?, 'tandem_instructor', 14000, ?, ?, ?, 'instructor')"
-  ).run(loadId, instructorId, nextOrder, tiPrice?.price || 0, groupId);
+    "INSERT INTO manifest_entries (load_id, jumper_id, jump_type, altitude, exit_order, ticket_price, paired_with) VALUES (?, ?, 'tandem', 14000, ?, ?, ?)"
+  ).run(loadId, jumperId, nextOrder, tandemPrice?.price || 0, instructorId);
 
   db.prepare(
     "UPDATE tandem_reception SET status = 'manifested', load_id = ?, updated_at = datetime('now') WHERE id = ?"
   ).run(loadId, Number(id));
 
-  return NextResponse.json({ success: true, loadId, groupId });
+  return NextResponse.json({ success: true, loadId });
 }
