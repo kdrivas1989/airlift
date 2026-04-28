@@ -287,6 +287,14 @@ function migrate(db: Database.Database) {
   if (!cols3.map(c => c.name).includes("ratings")) {
     db.exec("ALTER TABLE jumpers ADD COLUMN ratings TEXT");
   }
+
+  // Add videographer_id to tandem_reception
+  try {
+    const trCols = db.prepare("PRAGMA table_info(tandem_reception)").all() as Array<{ name: string }>;
+    if (trCols.length > 0 && !trCols.map(c => c.name).includes("videographer_id")) {
+      db.exec("ALTER TABLE tandem_reception ADD COLUMN videographer_id INTEGER REFERENCES jumpers(id)");
+    }
+  } catch { /* table may not exist yet */ }
 }
 
 function seed(db: Database.Database) {

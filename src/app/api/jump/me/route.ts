@@ -10,6 +10,23 @@ export async function GET() {
   const jumper = db.prepare("SELECT * FROM jumpers WHERE id = ?").get(user.staffId) as Record<string, unknown> | undefined;
   if (!jumper) return NextResponse.json({ error: "Jumper not found" }, { status: 404 });
 
+  const personType = (jumper.person_type as string) || "customer";
+  const licenseLevel = (jumper.license_level as string) || "unknown";
+
+  // Students cannot self-manifest
+  const isStudent = personType.includes("student") || licenseLevel === "student";
+  if (isStudent) {
+    return NextResponse.json({
+      id: user.staffId,
+      name: user.name,
+      balance: (jumper.balance as number) || 0,
+      jumpBlockRemaining: (jumper.jump_block_remaining as number) || 0,
+      canManifest: false,
+      isStudent: true,
+      reason: "Students must be manifested by staff with an instructor",
+    });
+  }
+
   const hasWaiver = (db.prepare("SELECT COUNT(*) as c FROM waivers WHERE jumper_id = ?").get(user.staffId) as { c: number }).c > 0;
 
   let reserveExpired = true;
@@ -33,7 +50,9 @@ export async function GET() {
     name: user.name,
     balance: (jumper.balance as number) || 0,
     jumpBlockRemaining: (jumper.jump_block_remaining as number) || 0,
+    licenseLevel,
     canManifest,
+    isStudent: false,
     reason: reasons.length > 0 ? reasons.join(", ") : undefined,
   });
 }

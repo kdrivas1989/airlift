@@ -13,6 +13,12 @@ export async function POST(request: NextRequest) {
   const db = getDb();
   const jumperId = user.staffId;
 
+  // Block students from self-manifesting
+  const jumper = db.prepare("SELECT person_type, license_level FROM jumpers WHERE id = ?").get(jumperId) as { person_type: string; license_level: string } | undefined;
+  if (!jumper) return NextResponse.json({ error: "Jumper not found" }, { status: 404 });
+  const isStudent = (jumper.person_type || "").includes("student") || jumper.license_level === "student";
+  if (isStudent) return NextResponse.json({ error: "Students must be manifested by staff" }, { status: 403 });
+
   // Check load is editable
   const editable = checkLoadEditable(db, loadId);
   if (!editable.ok) return NextResponse.json({ error: editable.error }, { status: 400 });

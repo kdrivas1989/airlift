@@ -38,7 +38,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const updates: string[] = [];
   const values: unknown[] = [];
 
-  for (const field of ["status", "emergency_contact_name", "emergency_contact_phone", "photo_package", "video_package", "handcam_package", "addon_total", "payment_status", "payment_notes", "notes", "instructor_id", "load_id"]) {
+  // Map camelCase body keys to snake_case DB columns
+  if (body.videographerId !== undefined) body.videographer_id = body.videographerId;
+
+  for (const field of ["status", "emergency_contact_name", "emergency_contact_phone", "photo_package", "video_package", "handcam_package", "addon_total", "payment_status", "payment_notes", "notes", "instructor_id", "load_id", "videographer_id"]) {
     if (body[field] !== undefined) {
       updates.push(`${field} = ?`);
       values.push(body[field]);

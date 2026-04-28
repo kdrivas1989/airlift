@@ -20,6 +20,7 @@ interface MeData {
   balance: number;
   jumpBlockRemaining: number;
   canManifest: boolean;
+  isStudent: boolean;
   reason?: string;
 }
 
@@ -106,7 +107,12 @@ export default function JumpPage() {
               <span className="text-blue-700 font-medium">{me.jumpBlockRemaining} block{me.jumpBlockRemaining !== 1 ? "s" : ""}</span>
             </div>
           </div>
-          {!me.canManifest && me.reason && (
+          {me.isStudent && (
+            <div className="mt-2 text-sm text-blue-700 bg-blue-50 px-3 py-2 rounded-lg">
+              Students are manifested by staff — check in at the manifest desk to get on a load with your instructor.
+            </div>
+          )}
+          {!me.canManifest && !me.isStudent && me.reason && (
             <div className="mt-2 text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{me.reason}</div>
           )}
         </div>

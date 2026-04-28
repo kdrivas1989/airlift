@@ -22,6 +22,9 @@ interface ReceptionEntry {
   instructor_id: number | null;
   instructor_first_name: string | null;
   instructor_last_name: string | null;
+  videographer_id: number | null;
+  videographer_first_name: string | null;
+  videographer_last_name: string | null;
   load_id: number | null;
   load_number: number | null;
   notes: string | null;
@@ -50,6 +53,8 @@ export default function ReceptionPage() {
   const [instructors, setInstructors] = useState<InstructorOption[]>([]);
   const [manifestModal, setManifestModal] = useState<number | null>(null);
   const [loads, setLoads] = useState<LoadOption[]>([]);
+  const [videoModal, setVideoModal] = useState<number | null>(null);
+  const [videographers, setVideographers] = useState<InstructorOption[]>([]);
   const [err, setErr] = useState("");
 
   const refresh = useCallback(async () => {
@@ -70,6 +75,23 @@ export default function ReceptionPage() {
   async function openManifest(id: number) { setErr(""); const r = await fetch("/api/loads?status=open"); if (r.ok) { const d = await r.json(); setLoads((d.loads||[]).map((l: Record<string,unknown>) => ({id: l.id, loadNumber: l.loadNumber, aircraft: (l.aircraft as Record<string,unknown>)?.tailNumber||"?", slotsAvailable: l.slotsAvailable}))); } setManifestModal(id); }
   async function handleManifest(eid: number, lid: number) { setErr(""); const r = await fetch(`/api/reception/${eid}/manifest`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ loadId: lid }) }); if (r.ok) { setManifestModal(null); refresh(); } else { const d = await r.json(); setErr(d.error||"Failed"); } }
   async function handleCancel(id: number) { if (!confirm("Cancel this tandem?")) return; await fetch(`/api/reception/${id}`, { method: "DELETE" }); refresh(); }
+  async function openVideoAssign(id: number) {
+    setErr("");
+    const r = await fetch("/api/checkin?date=" + new Date().toISOString().split("T")[0]);
+    if (r.ok) {
+      const d = await r.json();
+      setVideographers((d.jumpers||[]).filter((j: Record<string,unknown>) => {
+        const pt = (j.personType as string) || "";
+        return pt.includes("staff") || pt.includes("videographer");
+      }).map((j: Record<string,unknown>) => ({id: j.id as number, firstName: j.firstName as string, lastName: j.lastName as string})));
+    }
+    setVideoModal(id);
+  }
+  async function handleVideoAssign(eid: number, vidId: number) {
+    setErr("");
+    const r = await fetch(`/api/reception/${eid}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ videographerId: vidId }) });
+    if (r.ok) { setVideoModal(null); refresh(); } else { const d = await r.json(); setErr(d.error||"Failed"); }
+  }
 
   if (loading) return <div className="text-gray-500 text-center py-12">Loading...</div>;
 
@@ -99,6 +121,10 @@ export default function ReceptionPage() {
                   {(e.photo_package||e.video_package||e.handcam_package) && <div className="flex gap-1 mb-1">{e.photo_package?<span className="px-1 py-0.5 bg-pink-100 text-pink-700 rounded text-[9px] font-medium">Photo</span>:null}{e.video_package?<span className="px-1 py-0.5 bg-violet-100 text-violet-700 rounded text-[9px] font-medium">Video</span>:null}{e.handcam_package?<span className="px-1 py-0.5 bg-cyan-100 text-cyan-700 rounded text-[9px] font-medium">Handcam</span>:null}</div>}
                   <span className={`px-1 py-0.5 rounded text-[9px] font-medium ${e.payment_status==="paid"?"bg-green-100 text-green-700":e.payment_status==="deposit"?"bg-yellow-100 text-yellow-700":"bg-red-100 text-red-700"}`}>{e.payment_status}</span>
                   {e.instructor_first_name && <p className="text-[11px] text-purple-600 mt-1">TI: {e.instructor_first_name} {e.instructor_last_name}</p>}
+                  {e.videographer_first_name && <p className="text-[11px] text-pink-600 mt-0.5">Video: {e.videographer_first_name} {e.videographer_last_name}</p>}
+                  {e.video_package && !e.videographer_id && e.status !== "booked" && (
+                    <button onClick={() => openVideoAssign(e.id)} className="text-[10px] text-pink-600 hover:underline mt-0.5">+ Assign Videographer</button>
+                  )}
                   {e.load_number!=null && <p className="text-[11px] text-green-600 mt-0.5">Load #{e.load_number}</p>}
                   <div className="flex gap-1 flex-wrap mt-2">
                     {col==="booked" && <button onClick={() => updateStatus(e.id,"checked_in")} className="px-2 py-1 bg-yellow-500 text-white rounded text-[11px] font-medium">Check In</button>}
@@ -140,6 +166,12 @@ export default function ReceptionPage() {
         <h2 className="text-lg font-bold text-gray-900 mb-4">Add to Load</h2>
         {loads.length===0 ? <p className="text-gray-500 text-sm mb-4">No open loads.</p> : <div className="space-y-2 mb-4 max-h-60 overflow-y-auto">{loads.filter(l=>l.slotsAvailable>=2).map(l=><button key={l.id} onClick={()=>handleManifest(manifestModal,l.id)} className="w-full text-left px-4 py-3 rounded-lg border border-gray-200 hover:border-green-400 hover:bg-green-50"><p className="font-medium text-gray-900 text-sm">Load #{l.loadNumber} ({l.aircraft})</p><p className="text-xs text-gray-500">{l.slotsAvailable} slots</p></button>)}</div>}
         <button onClick={()=>setManifestModal(null)} className="text-sm text-gray-500">Cancel</button>
+      </div></div>}
+
+      {videoModal && <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"><div className="bg-white rounded-xl p-6 max-w-md w-full shadow-xl">
+        <h2 className="text-lg font-bold text-gray-900 mb-4">Assign Videographer</h2>
+        {videographers.length===0 ? <p className="text-gray-500 text-sm mb-4">No videographers checked in.</p> : <div className="space-y-2 mb-4 max-h-60 overflow-y-auto">{videographers.map(v=><button key={v.id} onClick={()=>handleVideoAssign(videoModal,v.id)} className="w-full text-left px-4 py-3 rounded-lg border border-gray-200 hover:border-pink-400 hover:bg-pink-50"><p className="font-medium text-gray-900 text-sm">{v.firstName} {v.lastName}</p></button>)}</div>}
+        <button onClick={()=>setVideoModal(null)} className="text-sm text-gray-500">Cancel</button>
       </div></div>}
     </div>
   );

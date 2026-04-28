@@ -13,10 +13,12 @@ export async function GET() {
       j.first_name, j.last_name, j.email, j.phone, j.weight, j.date_of_birth,
       (SELECT COUNT(*) FROM waivers w WHERE w.jumper_id = j.id) > 0 as has_waiver,
       ti.first_name as instructor_first_name, ti.last_name as instructor_last_name,
+      vid.first_name as videographer_first_name, vid.last_name as videographer_last_name,
       l.load_number
     FROM tandem_reception tr
     JOIN jumpers j ON j.id = tr.jumper_id
     LEFT JOIN jumpers ti ON ti.id = tr.instructor_id
+    LEFT JOIN jumpers vid ON vid.id = tr.videographer_id
     LEFT JOIN loads l ON l.id = tr.load_id
     WHERE tr.date = date('now') AND tr.status != 'cancelled'
     ORDER BY
