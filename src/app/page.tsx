@@ -8,14 +8,20 @@ export default function Home() {
 
       <div className="flex flex-col gap-4 w-full max-w-sm">
         <Link
-          href="/register"
+          href="/jump"
           className="bg-blue-600 text-white text-center py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition"
         >
-          Jumper Registration
+          Join a Load
+        </Link>
+        <Link
+          href="/register"
+          className="bg-gray-700 text-white text-center py-3 px-6 rounded-lg font-semibold hover:bg-gray-800 transition"
+        >
+          New Jumper Registration
         </Link>
         <Link
           href="/login"
-          className="bg-gray-800 text-white text-center py-3 px-6 rounded-lg font-semibold hover:bg-gray-900 transition"
+          className="text-gray-500 text-center py-2 text-sm hover:text-gray-700 transition"
         >
           Staff Login
         </Link>
