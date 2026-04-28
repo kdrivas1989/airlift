@@ -63,6 +63,7 @@ export async function PATCH(
       fields.push("uspa_verified_at = ?");
       values.push(body.uspaVerified ? new Date().toISOString() : null);
     }
+    if (body.ratings !== undefined) { fields.push("ratings = ?"); values.push(body.ratings || null); }
     if (body.personType !== undefined) { fields.push("person_type = ?"); values.push(body.personType); }
     if (body.staffRole !== undefined) { fields.push("staff_role = ?"); values.push(body.staffRole); }
     if (body.staffActive !== undefined) { fields.push("staff_active = ?"); values.push(body.staffActive ? 1 : 0); }

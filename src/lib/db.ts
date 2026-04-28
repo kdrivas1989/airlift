@@ -281,6 +281,12 @@ function migrate(db: Database.Database) {
 
   // Ensure staff passwords are copied to password_hash
   db.exec("UPDATE jumpers SET password_hash = staff_password_hash WHERE staff_password_hash IS NOT NULL AND password_hash IS NULL");
+
+  // Add ratings column to jumpers (comma-separated: tandem,aff,coach,etc.)
+  const cols3 = db.prepare("PRAGMA table_info(jumpers)").all() as Array<{ name: string }>;
+  if (!cols3.map(c => c.name).includes("ratings")) {
+    db.exec("ALTER TABLE jumpers ADD COLUMN ratings TEXT");
+  }
 }
 
 function seed(db: Database.Database) {
@@ -304,6 +310,7 @@ function seed(db: Database.Database) {
       { jump_type: "high_altitude", price: 3800, label: "High Altitude" },
       { jump_type: "coach", price: 2800, label: "Coach Jump" },
       { jump_type: "video", price: 2800, label: "Video" },
+      { jump_type: "organizer", price: 0, label: "Organizer" },
     ];
     const insert = db.prepare(
       "INSERT INTO jump_type_pricing (jump_type, price, label) VALUES (?, ?, ?)"

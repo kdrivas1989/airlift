@@ -75,6 +75,7 @@ export async function GET(request: NextRequest) {
         balance: j.balance || 0,
         jumpBlockRemaining: j.jump_block_remaining || 0,
         personType: (j as Record<string, unknown>).person_type || "customer",
+        ratings: (j as Record<string, unknown>).ratings || null,
         staffRole: (j as Record<string, unknown>).staff_role || null,
         staffActive: (j as Record<string, unknown>).staff_active ?? 1,
       };

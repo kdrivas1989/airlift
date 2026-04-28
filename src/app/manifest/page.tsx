@@ -82,6 +82,7 @@ const JUMP_TYPES = [
   { value: "high_altitude", label: "High Alt" },
   { value: "coach", label: "Coach" },
   { value: "video", label: "Video" },
+  { value: "organizer", label: "Organizer" },
 ];
 
 export default function ManifestDashboard() {
@@ -599,6 +600,7 @@ export default function ManifestDashboard() {
                             entry.jumpType === "aff" ? "bg-amber-100 text-amber-700" :
                             entry.jumpType === "coach" ? "bg-teal-100 text-teal-700" :
                             entry.jumpType === "hop_n_pop" ? "bg-orange-100 text-orange-700" :
+                            entry.jumpType === "organizer" ? "bg-emerald-100 text-emerald-700" :
                             "bg-gray-100 text-gray-700"
                           }`}>
                             {JUMP_TYPES.find((t) => t.value === entry.jumpType)?.label || entry.jumpType}
