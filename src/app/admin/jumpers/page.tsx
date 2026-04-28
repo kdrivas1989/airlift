@@ -27,7 +27,7 @@ interface Person {
   staffActive: number;
 }
 
-const TYPE_OPTIONS = ["customer", "staff", "ground"] as const;
+const TYPE_OPTIONS = ["customer", "staff", "ground", "organizer", "student", "videographer"] as const;
 
 export default function PeoplePage() {
   const [people, setPeople] = useState<Person[]>([]);
@@ -210,10 +210,16 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
     blocks: number | null;
     loadNumber: number | null;
     paymentMethod: string | null;
+    studentName: string | null;
+    instructorEarnings: number | null;
   }
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [totalJumps, setTotalJumps] = useState(0);
+  const [totalTandems, setTotalTandems] = useState(0);
+  const [totalEarnings, setTotalEarnings] = useState(0);
+  const [isStaffLedger, setIsStaffLedger] = useState(false);
   const [ledgerLoading, setLedgerLoading] = useState(false);
+  const [paycheckMsg, setPaycheckMsg] = useState("");
 
   async function save() {
     setSaving(true);
@@ -327,6 +333,9 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
               fetch(`/api/jumpers/${person.id}/ledger`).then(r => r.json()).then(d => {
                 setLedger(d.ledger || []);
                 setTotalJumps(d.totalJumps || 0);
+                setTotalTandems(d.totalTandems || 0);
+                setTotalEarnings(d.totalEarnings || 0);
+                setIsStaffLedger(d.isStaff || false);
                 if (d.jumper) { setCashBalance(d.jumper.balance); setBlockBalance(d.jumper.jumpBlockRemaining); }
                 setLedgerLoading(false);
               }).catch(() => setLedgerLoading(false));
@@ -518,17 +527,52 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
                 <div className="text-center py-8 text-gray-400 text-sm">Loading...</div>
               ) : (
                 <>
-                  <div className="flex gap-3 mb-3 text-sm">
+                  <div className="flex gap-3 mb-3 text-sm flex-wrap">
                     <span className="text-gray-500">Total jumps: <span className="font-bold text-gray-800">{totalJumps}</span></span>
+                    {isStaffLedger && totalTandems > 0 && (
+                      <>
+                        <span className="text-gray-500">Tandems: <span className="font-bold text-purple-700">{totalTandems}</span></span>
+                        <span className="text-gray-500">Earnings: <span className="font-bold text-green-700">${(totalEarnings / 100).toFixed(2)}</span></span>
+                      </>
+                    )}
                   </div>
+                  {isStaffLedger && totalEarnings > 0 && (
+                    <div className="mb-3">
+                      <button
+                        onClick={async () => {
+                          if (!confirm(`Issue paycheck for $${(totalEarnings / 100).toFixed(2)}?`)) return;
+                          const res = await fetch(`/api/jumpers/${person.id}/paycheck`, { method: "POST" });
+                          const data = await res.json();
+                          if (res.ok) {
+                            setPaycheckMsg(`Paycheck issued: ${data.tandems} tandem(s) = $${(data.totalEarnings / 100).toFixed(2)}`);
+                            setTotalEarnings(0);
+                            // Refresh ledger
+                            const lr = await fetch(`/api/jumpers/${person.id}/ledger`);
+                            const ld = await lr.json();
+                            setLedger(ld.ledger || []);
+                            setTotalTandems(ld.totalTandems || 0);
+                            setTotalEarnings(ld.totalEarnings || 0);
+                          } else {
+                            setPaycheckMsg(data.error || "Failed");
+                          }
+                        }}
+                        className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700"
+                      >
+                        Issue Paycheck — ${(totalEarnings / 100).toFixed(2)}
+                      </button>
+                      {paycheckMsg && <span className="ml-3 text-sm text-green-700">{paycheckMsg}</span>}
+                    </div>
+                  )}
                   <div className="border rounded-lg overflow-hidden">
                     <table className="w-full text-xs">
                       <thead className="bg-gray-50 border-b">
                         <tr>
                           <th className="text-left px-3 py-2 font-medium text-gray-600">Date</th>
                           <th className="text-left px-3 py-2 font-medium text-gray-600">Description</th>
+                          {isStaffLedger && <th className="text-left px-3 py-2 font-medium text-gray-600">Student</th>}
                           <th className="text-right px-3 py-2 font-medium text-gray-600">Cash</th>
                           <th className="text-right px-3 py-2 font-medium text-gray-600">Blocks</th>
+                          {isStaffLedger && <th className="text-right px-3 py-2 font-medium text-gray-600">Earned</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -544,6 +588,9 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
                                 {entry.type === "debit" && <span className="text-red-600">-</span>}
                                 {entry.type === "block_credit" && <span className="text-blue-600">+</span>}
                                 {entry.type === "block_debit" && <span className="text-red-600">-</span>}
+                                {entry.type === "instructor_earning" && <span className="text-purple-600">$</span>}
+                                {entry.type === "paycheck" && <span className="text-green-600">&#10003;</span>}
+                                {entry.type === "cc_fee" && <span className="text-gray-400">%</span>}
                                 <span>{entry.description}</span>
                                 {entry.paymentMethod && (
                                   <span className={`px-1 py-0.5 rounded text-[9px] font-medium ${
@@ -552,20 +599,30 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
                                 )}
                               </div>
                             </td>
+                            {isStaffLedger && (
+                              <td className="px-3 py-1.5 text-purple-700 text-xs">
+                                {entry.studentName || ""}
+                              </td>
+                            )}
                             <td className={`px-3 py-1.5 text-right font-mono ${
                               entry.amount && entry.amount > 0 ? "text-green-700" : entry.amount && entry.amount < 0 ? "text-red-600" : "text-gray-300"
                             }`}>
-                              {entry.amount ? `${entry.amount > 0 ? "+" : ""}$${(Math.abs(entry.amount) / 100).toFixed(2)}` : "—"}
+                              {entry.amount && entry.type !== "instructor_earning" ? `${entry.amount > 0 ? "+" : ""}$${(Math.abs(entry.amount) / 100).toFixed(2)}` : "—"}
                             </td>
                             <td className={`px-3 py-1.5 text-right font-mono ${
                               entry.blocks && entry.blocks > 0 ? "text-blue-700" : entry.blocks && entry.blocks < 0 ? "text-red-600" : "text-gray-300"
                             }`}>
                               {entry.blocks ? `${entry.blocks > 0 ? "+" : ""}${entry.blocks}` : "—"}
                             </td>
+                            {isStaffLedger && (
+                              <td className="px-3 py-1.5 text-right font-mono text-green-700">
+                                {entry.instructorEarnings ? `$${(entry.instructorEarnings / 100).toFixed(2)}` : ""}
+                              </td>
+                            )}
                           </tr>
                         ))}
                         {ledger.length === 0 && (
-                          <tr><td colSpan={4} className="px-3 py-8 text-center text-gray-400">No activity yet</td></tr>
+                          <tr><td colSpan={isStaffLedger ? 6 : 4} className="px-3 py-8 text-center text-gray-400">No activity yet</td></tr>
                         )}
                       </tbody>
                     </table>

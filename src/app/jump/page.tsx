@@ -22,6 +22,7 @@ interface MeData {
   jumpBlockRemaining: number;
   canManifest: boolean;
   isStudent: boolean;
+  isOrganizer: boolean;
   reason?: string;
 }
 
@@ -37,6 +38,11 @@ export default function JumpPage() {
   const [loads, setLoads] = useState<LoadData[]>([]);
   const [me, setMe] = useState<MeData | null>(null);
   const [jumpType, setJumpType] = useState("solo");
+
+  // Auto-set organizer jump type when me loads
+  useEffect(() => {
+    if (me?.isOrganizer) setJumpType("organizer");
+  }, [me?.isOrganizer]);
   const [joining, setJoining] = useState<number | null>(null);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
@@ -120,24 +126,33 @@ export default function JumpPage() {
       )}
 
       {/* Jump type selector */}
-      <div className="bg-white rounded-xl border p-4 mb-4">
-        <label className="block text-xs text-gray-500 mb-2">Jump Type</label>
-        <div className="flex gap-2 flex-wrap">
-          {JUMP_TYPES.map(t => (
-            <button
-              key={t.value}
-              onClick={() => setJumpType(t.value)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium border-2 transition ${
-                jumpType === t.value
-                  ? "border-blue-500 bg-blue-50 text-blue-800"
-                  : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+      {me?.isOrganizer ? (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-4">
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-1 bg-emerald-200 text-emerald-800 rounded-full text-xs font-bold">ORGANIZER</span>
+            <span className="text-sm text-emerald-700">You have reserved organizer slots</span>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="bg-white rounded-xl border p-4 mb-4">
+          <label className="block text-xs text-gray-500 mb-2">Jump Type</label>
+          <div className="flex gap-2 flex-wrap">
+            {JUMP_TYPES.map(t => (
+              <button
+                key={t.value}
+                onClick={() => setJumpType(t.value)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium border-2 transition ${
+                  jumpType === t.value
+                    ? "border-blue-500 bg-blue-50 text-blue-800"
+                    : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Messages */}
       {msg && <div className="mb-4 text-sm text-green-700 bg-green-50 px-4 py-3 rounded-xl">{msg}</div>}
@@ -148,7 +163,7 @@ export default function JumpPage() {
       <div className="space-y-3">
         {loads.filter(l => l.status === "open").map(load => {
           const onThis = myLoadIds.has(load.id);
-          const full = load.openSlots <= 0;
+          const full = me?.isOrganizer ? load.slotsAvailable <= 0 : load.openSlots <= 0;
           return (
             <div key={load.id} className={`bg-white rounded-xl border p-4 ${onThis ? "border-blue-400 ring-2 ring-blue-100" : ""}`}>
               <div className="flex items-center justify-between mb-2">
@@ -157,10 +172,21 @@ export default function JumpPage() {
                   <span className="text-sm text-gray-500 ml-2">{load.aircraft.tailNumber} {load.aircraft.name && `- ${load.aircraft.name}`}</span>
                 </div>
                 <div className="text-right">
-                  <div className={`text-sm font-medium ${load.openSlots <= 0 ? "text-red-600" : load.openSlots <= 3 ? "text-orange-600" : ""}`}>
-                    {Math.max(0, load.openSlots)} open
-                  </div>
-                  <div className="text-[10px] text-gray-500">slots</div>
+                  {me?.isOrganizer ? (
+                    <>
+                      <div className="text-sm font-medium text-emerald-700">
+                        {Math.max(0, load.slotsAvailable)} open
+                      </div>
+                      <div className="text-[10px] text-gray-500">of {load.aircraft.slotCount}</div>
+                    </>
+                  ) : (
+                    <>
+                      <div className={`text-sm font-medium ${load.openSlots <= 0 ? "text-red-600" : load.openSlots <= 3 ? "text-orange-600" : ""}`}>
+                        {Math.max(0, load.openSlots)} open
+                      </div>
+                      <div className="text-[10px] text-gray-500">slots</div>
+                    </>
+                  )}
                 </div>
               </div>
 

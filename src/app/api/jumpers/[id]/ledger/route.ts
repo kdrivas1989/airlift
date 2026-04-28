@@ -34,26 +34,43 @@ export async function GET(
       ORDER BY me.created_at DESC
     `).all(id) as Array<Record<string, unknown>>;
 
+    // Instructor tandem data: students paired with this instructor
+    const tandemStudents = db.prepare(`
+      SELECT me.id, me.created_at, me.ticket_price,
+        l.load_number,
+        j.first_name as student_first, j.last_name as student_last
+      FROM manifest_entries me
+      JOIN loads l ON l.id = me.load_id
+      JOIN jumpers j ON j.id = me.jumper_id
+      WHERE me.paired_with = ?
+      ORDER BY me.created_at DESC
+    `).all(id) as Array<Record<string, unknown>>;
+
     // Build combined ledger sorted by date
-    const ledger: Array<{
+    interface LedgerEntry {
       date: string;
-      type: "jump" | "credit" | "debit" | "block_credit" | "block_debit";
+      type: string;
       description: string;
       amount: number | null;
       blocks: number | null;
       loadNumber: number | null;
       paymentMethod: string | null;
-    }> = [];
+      studentName: string | null;
+      instructorEarnings: number | null;
+    }
+    const ledger: LedgerEntry[] = [];
 
     for (const t of transactions) {
       ledger.push({
         date: t.created_at as string,
-        type: t.type as "credit" | "debit" | "block_credit" | "block_debit",
+        type: t.type as string,
         description: t.description as string,
-        amount: ["credit", "debit"].includes(t.type as string) ? (t.amount as number) : null,
+        amount: ["credit", "debit", "cc_fee"].includes(t.type as string) ? (t.amount as number) : null,
         blocks: ["block_credit", "block_debit"].includes(t.type as string) ? (t.amount as number) : null,
         loadNumber: null,
         paymentMethod: null,
+        studentName: null,
+        instructorEarnings: null,
       });
     }
 
@@ -66,7 +83,31 @@ export async function GET(
         blocks: j.payment_method === "block" ? -1 : null,
         loadNumber: j.load_number as number,
         paymentMethod: (j.payment_method as string) || "block",
+        studentName: null,
+        instructorEarnings: null,
       });
+    }
+
+    // Instructor earnings entries
+    const isStaff = ((jumper as Record<string, unknown>).person_type as string || "").includes("staff");
+    let totalEarnings = 0;
+    if (isStaff) {
+      for (const ts of tandemStudents) {
+        // TODO: make instructor rate configurable; default $50 per tandem
+        const earnings = 5000; // $50.00 in cents
+        totalEarnings += earnings;
+        ledger.push({
+          date: ts.created_at as string,
+          type: "instructor_earning",
+          description: `Tandem — Load #${ts.load_number}`,
+          amount: earnings,
+          blocks: null,
+          loadNumber: ts.load_number as number,
+          paymentMethod: null,
+          studentName: `${ts.student_first} ${ts.student_last}`,
+          instructorEarnings: earnings,
+        });
+      }
     }
 
     // Sort newest first
@@ -82,6 +123,9 @@ export async function GET(
       },
       ledger,
       totalJumps: jumps.length,
+      totalTandems: tandemStudents.length,
+      totalEarnings,
+      isStaff,
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed";

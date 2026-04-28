@@ -12,6 +12,7 @@ export async function GET() {
 
   const personType = (jumper.person_type as string) || "customer";
   const licenseLevel = (jumper.license_level as string) || "unknown";
+  const isOrganizer = personType.includes("organizer");
 
   // Students cannot self-manifest
   const isStudent = personType.includes("student") || licenseLevel === "student";
@@ -53,6 +54,7 @@ export async function GET() {
     licenseLevel,
     canManifest,
     isStudent: false,
+    isOrganizer,
     reason: reasons.length > 0 ? reasons.join(", ") : undefined,
   });
 }
