@@ -463,7 +463,15 @@ export default function ManifestDashboard() {
                 }`}
               >
                 <div className="flex justify-between items-center mb-1">
-                  <span className="font-bold">Load #{load.loadNumber}</span>
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <span className="font-bold text-sm">Load #{load.loadNumber}</span>
+                    <span className="text-gray-500">{load.aircraft.tailNumber}</span>
+                    <span className="text-blue-700 font-medium">P:{Math.max(0, load.openSlots)}</span>
+                    {load.reservedOrganizerSlots > 0 && (
+                      <span className="text-emerald-700 font-medium">R:{load.reservedOrganizerSlots - load.manifest.filter(m => m.jumpType === "organizer").length}</span>
+                    )}
+                    {load.slotsAvailable === 0 && <span className="text-red-600 font-bold">FULL</span>}
+                  </div>
                   <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
                     load.status === "open" ? "bg-green-100 text-green-700 ring-1 ring-green-200" :
                     load.status === "in_flight" ? "bg-blue-100 text-blue-700 ring-1 ring-blue-200" :
@@ -471,14 +479,6 @@ export default function ManifestDashboard() {
                   }`}>
                     {STATUS_LABELS[load.status]}
                   </span>
-                </div>
-                <div className="text-xs text-gray-600">{load.aircraft.tailNumber}</div>
-                <div className="text-xs text-gray-500 mt-1 flex gap-2">
-                  <span className="text-blue-700 font-medium">P:{Math.max(0, load.openSlots)}</span>
-                  {load.reservedOrganizerSlots > 0 && (
-                    <span className="text-emerald-700 font-medium">R:{load.reservedOrganizerSlots - load.manifest.filter(m => m.jumpType === "organizer").length}</span>
-                  )}
-                  {load.slotsAvailable === 0 && <span className="text-red-600 font-bold">FULL</span>}
                 </div>
                 {load.departureTime && <DepartureCountdown departureTime={load.departureTime} compact />}
               </button>
