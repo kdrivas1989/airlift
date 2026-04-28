@@ -194,8 +194,12 @@ export function runAllChecks(
   const slotCheck = checkSlots(db, loadId);
   if (!slotCheck.ok) return slotCheck;
 
-  const doubleCheck = checkDoubleBooking(db, jumperId, loadId);
-  if (!doubleCheck.ok) return doubleCheck;
+  // Allow jumpers on multiple loads (boogie style)
+  // Only block same load twice
+  const sameLoad = db.prepare(
+    "SELECT id FROM manifest_entries WHERE load_id = ? AND jumper_id = ?"
+  ).get(loadId, jumperId);
+  if (sameLoad) return { ok: false, error: "Jumper already on this load" };
 
   return { ok: true };
 }

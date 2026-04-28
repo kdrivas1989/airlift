@@ -42,10 +42,28 @@ export async function POST(
       "SELECT price FROM jump_type_pricing WHERE jump_type = ? AND active = 1"
     ).get(jumpType) as { price: number } | undefined;
 
+    const ticketPrice = pricing?.price || 0;
+
     const result = db.prepare(`
       INSERT INTO manifest_entries (load_id, jumper_id, jump_type, altitude, exit_order, ticket_price)
       VALUES (?, ?, ?, ?, ?, ?)
-    `).run(loadId, jumperId, jumpType, altitude || load.default_altitude, maxOrder.max_order + 1, pricing?.price || 0);
+    `).run(loadId, jumperId, jumpType, altitude || load.default_altitude, maxOrder.max_order + 1, ticketPrice);
+
+    // Deduct jump block if jumper has blocks remaining
+    if (ticketPrice > 0) {
+      const jumperBalance = db.prepare("SELECT jump_block_remaining, balance FROM jumpers WHERE id = ?").get(jumperId) as { jump_block_remaining: number; balance: number };
+      if (jumperBalance.jump_block_remaining > 0) {
+        db.prepare("UPDATE jumpers SET jump_block_remaining = jump_block_remaining - 1 WHERE id = ?").run(jumperId);
+        db.prepare(
+          "INSERT INTO balance_transactions (jumper_id, amount, type, description) VALUES (?, ?, ?, ?)"
+        ).run(jumperId, -1, "block_debit", `Load #${loadId} - ${jumpType}`);
+      } else if (jumperBalance.balance >= ticketPrice) {
+        db.prepare("UPDATE jumpers SET balance = balance - ? WHERE id = ?").run(ticketPrice, jumperId);
+        db.prepare(
+          "INSERT INTO balance_transactions (jumper_id, amount, type, description) VALUES (?, ?, ?, ?)"
+        ).run(jumperId, -ticketPrice, "debit", `Load #${loadId} - ${jumpType}`);
+      }
+    }
 
     const entry = db.prepare("SELECT * FROM manifest_entries WHERE id = ?").get(result.lastInsertRowid);
     const stats = getLoadStats(db, loadId);
@@ -79,6 +97,27 @@ export async function DELETE(
     ).get(loadId, jumperId);
 
     if (!entry) return NextResponse.json({ error: "Entry not found" }, { status: 404 });
+
+    // Refund block or balance
+    const removedEntry = entry as { ticket_price: number; jump_type: string };
+    if (removedEntry.ticket_price > 0) {
+      // Check if a block was deducted (look for recent block_debit)
+      const blockDebit = db.prepare(
+        "SELECT id FROM balance_transactions WHERE jumper_id = ? AND type = 'block_debit' AND description LIKE ? ORDER BY created_at DESC LIMIT 1"
+      ).get(jumperId, `Load #${loadId}%`) as { id: number } | undefined;
+      if (blockDebit) {
+        db.prepare("UPDATE jumpers SET jump_block_remaining = jump_block_remaining + 1 WHERE id = ?").run(jumperId);
+        db.prepare("DELETE FROM balance_transactions WHERE id = ?").run(blockDebit.id);
+      } else {
+        const cashDebit = db.prepare(
+          "SELECT id, amount FROM balance_transactions WHERE jumper_id = ? AND type = 'debit' AND description LIKE ? ORDER BY created_at DESC LIMIT 1"
+        ).get(jumperId, `Load #${loadId}%`) as { id: number; amount: number } | undefined;
+        if (cashDebit) {
+          db.prepare("UPDATE jumpers SET balance = balance + ? WHERE id = ?").run(Math.abs(cashDebit.amount), jumperId);
+          db.prepare("DELETE FROM balance_transactions WHERE id = ?").run(cashDebit.id);
+        }
+      }
+    }
 
     db.prepare("DELETE FROM manifest_entries WHERE load_id = ? AND jumper_id = ?").run(loadId, jumperId);
 
