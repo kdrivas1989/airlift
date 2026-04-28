@@ -758,12 +758,16 @@ export default function ManifestDashboard() {
                     uspaStatus={j.uspaActive ? "Active" : null}
                     compact
                   />
-                  <div className="flex-1 min-w-0 pointer-events-none">
-                    <div className="font-medium truncate">
+                  <div
+                    className="flex-1 min-w-0 cursor-pointer"
+                    onDoubleClick={(e) => { e.stopPropagation(); setBalanceModal(j); }}
+                    draggable={false}
+                  >
+                    <div className="font-medium truncate pointer-events-none">
                       {j.firstName} {j.lastName}
                       {onLoad && <span className="text-[10px] text-gray-400 ml-1">(on load)</span>}
                     </div>
-                    <div className="text-[11px] text-gray-500 flex gap-2">
+                    <div className="text-[11px] text-gray-500 flex gap-2 pointer-events-none">
                       <span>{j.weight} lbs</span>
                       <span>{j.licenseLevel}</span>
                     </div>
@@ -1171,6 +1175,13 @@ function QuickAddJumper({ onCreated }: { onCreated: (id: number) => void }) {
   );
 }
 
+const JUMP_PACKAGES = [
+  { blocks: 1, price: 28, label: "1 Jump" },
+  { blocks: 5, price: 130, label: "5 Pack" },
+  { blocks: 10, price: 250, label: "10 Pack" },
+  { blocks: 20, price: 480, label: "20 Pack" },
+];
+
 function BalanceModal({
   jumper,
   onClose,
@@ -1180,24 +1191,40 @@ function BalanceModal({
   onClose: () => void;
   onAdd: (jumperId: number, type: string, amount: number, description?: string) => void;
 }) {
-  const [mode, setMode] = useState<"cash" | "blocks">("cash");
+  const [tab, setTab] = useState<"packages" | "cash" | "blocks">("packages");
   const [amount, setAmount] = useState("");
+  const [msg, setMsg] = useState("");
 
-  function submit(e: React.FormEvent) {
+  function addCash(e: React.FormEvent) {
     e.preventDefault();
     const val = Number(amount);
     if (!val || val <= 0) return;
-    if (mode === "cash") {
-      onAdd(jumper.id, "add_cash", val, `Cash deposit $${val.toFixed(2)}`);
-    } else {
-      onAdd(jumper.id, "add_blocks", val, `Added ${Math.round(val)} jump block(s)`);
-    }
+    onAdd(jumper.id, "add_cash", val, `Cash deposit $${val.toFixed(2)}`);
+    setMsg(`Added $${val.toFixed(2)}`);
+    setAmount("");
+  }
+
+  function addBlocks(e: React.FormEvent) {
+    e.preventDefault();
+    const val = Number(amount);
+    if (!val || val <= 0) return;
+    onAdd(jumper.id, "add_blocks", val, `Added ${Math.round(val)} jump block(s)`);
+    setMsg(`Added ${Math.round(val)} block(s)`);
+    setAmount("");
+  }
+
+  function buyPackage(pkg: typeof JUMP_PACKAGES[0]) {
+    onAdd(jumper.id, "add_blocks", pkg.blocks, `${pkg.label} ($${pkg.price})`);
+    setMsg(`${pkg.label} added — ${pkg.blocks} jump(s)`);
   }
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl p-6 w-80" onClick={(e) => e.stopPropagation()}>
-        <h3 className="font-bold text-lg mb-1">{jumper.firstName} {jumper.lastName}</h3>
+      <div className="bg-white rounded-xl shadow-xl p-5 w-96" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="font-bold text-lg">{jumper.firstName} {jumper.lastName}</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+        </div>
         <div className="flex gap-4 text-sm mb-4">
           <div>
             <span className="text-gray-500">Cash:</span>{" "}
@@ -1209,42 +1236,62 @@ function BalanceModal({
           </div>
         </div>
 
-        <form onSubmit={submit} className="space-y-3">
-          <div className="flex rounded-lg border overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setMode("cash")}
-              className={`flex-1 py-2 text-sm font-medium ${mode === "cash" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-700"}`}
-            >
-              Add Cash
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("blocks")}
-              className={`flex-1 py-2 text-sm font-medium ${mode === "blocks" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-700"}`}
-            >
-              Add Blocks
-            </button>
+        {/* Tabs */}
+        <div className="flex rounded-lg border overflow-hidden mb-4">
+          <button onClick={() => setTab("packages")}
+            className={`flex-1 py-1.5 text-xs font-medium ${tab === "packages" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-700"}`}>
+            Jump Packages
+          </button>
+          <button onClick={() => setTab("cash")}
+            className={`flex-1 py-1.5 text-xs font-medium ${tab === "cash" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-700"}`}>
+            Add Cash
+          </button>
+          <button onClick={() => setTab("blocks")}
+            className={`flex-1 py-1.5 text-xs font-medium ${tab === "blocks" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-700"}`}>
+            Add Blocks
+          </button>
+        </div>
+
+        {tab === "packages" && (
+          <div className="grid grid-cols-2 gap-2">
+            {JUMP_PACKAGES.map((pkg) => (
+              <button
+                key={pkg.blocks}
+                onClick={() => buyPackage(pkg)}
+                className="border-2 border-blue-200 rounded-lg p-3 text-left hover:border-blue-500 hover:bg-blue-50 transition"
+              >
+                <div className="font-bold text-blue-800">{pkg.label}</div>
+                <div className="text-xs text-gray-600">${pkg.price} &middot; {pkg.blocks} jump{pkg.blocks > 1 ? "s" : ""}</div>
+                {pkg.blocks > 1 && <div className="text-[10px] text-green-600 font-medium">${(pkg.price / pkg.blocks).toFixed(2)}/jump</div>}
+              </button>
+            ))}
           </div>
-          <input
-            type="number"
-            min="0"
-            step={mode === "cash" ? "0.01" : "1"}
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder={mode === "cash" ? "Amount in dollars" : "Number of blocks"}
-            className="w-full border rounded-lg px-3 py-2"
-            autoFocus
-          />
-          <div className="flex gap-2">
-            <button type="submit" className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 text-sm">
-              {mode === "cash" ? `Add $${Number(amount || 0).toFixed(2)}` : `Add ${Math.round(Number(amount || 0))} Block(s)`}
+        )}
+
+        {tab === "cash" && (
+          <form onSubmit={addCash} className="space-y-3">
+            <div className="relative">
+              <span className="absolute left-3 top-2.5 text-gray-400">$</span>
+              <input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)}
+                placeholder="0.00" className="w-full border rounded-lg pl-7 pr-3 py-2" autoFocus />
+            </div>
+            <button type="submit" className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 text-sm">
+              Add ${Number(amount || 0).toFixed(2)}
             </button>
-            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border hover:bg-gray-50 text-sm">
-              Close
+          </form>
+        )}
+
+        {tab === "blocks" && (
+          <form onSubmit={addBlocks} className="space-y-3">
+            <input type="number" min="1" step="1" value={amount} onChange={(e) => setAmount(e.target.value)}
+              placeholder="Number of blocks" className="w-full border rounded-lg px-3 py-2" autoFocus />
+            <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 text-sm">
+              Add {Math.round(Number(amount || 0))} Block(s)
             </button>
-          </div>
-        </form>
+          </form>
+        )}
+
+        {msg && <div className="mt-3 text-sm text-green-700 bg-green-50 px-3 py-2 rounded-lg">{msg}</div>}
       </div>
     </div>
   );
