@@ -10,15 +10,46 @@ interface USPAStatus {
 }
 
 export default function SettingsPage() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [cookieStr, setCookieStr] = useState("");
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [status, setStatus] = useState<USPAStatus | null>(null);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    fetch("/api/uspa").then((r) => r.json()).then(setStatus);
+    fetch("/api/uspa").then((r) => r.json()).then((s) => {
+      setStatus(s);
+      if (s.email) setEmail(s.email);
+    });
   }, []);
+
+  async function loginWithCredentials() {
+    if (!email.trim() || !password.trim()) return;
+    setSaving(true);
+    setMessage("");
+    try {
+      const res = await fetch("/api/uspa", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), password: password.trim() }),
+      });
+      const data = await res.json();
+      if (data.valid) {
+        setMessage(`Connected! Verified: ${data.testMember?.firstName} ${data.testMember?.lastName} (${data.testMember?.status})`);
+        setPassword("");
+        fetch("/api/uspa").then((r) => r.json()).then(setStatus);
+      } else {
+        setMessage(data.error || "Login failed. Try the cookie method below.");
+        setShowAdvanced(true);
+      }
+    } catch {
+      setMessage("Failed to connect");
+    }
+    setSaving(false);
+  }
 
   async function saveCookies() {
     if (!cookieStr.trim()) return;
@@ -28,7 +59,7 @@ export default function SettingsPage() {
       const res = await fetch("/api/uspa", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cookies: cookieStr.trim(), email: "", password: "" }),
+        body: JSON.stringify({ cookies: cookieStr.trim() }),
       });
       const data = await res.json();
       if (data.valid) {
@@ -57,7 +88,7 @@ export default function SettingsPage() {
       if (res.ok && data.member) {
         setMessage(`Connection OK: ${data.member.firstName} ${data.member.lastName} — ${data.member.status}, exp ${data.member.expDate}`);
       } else {
-        setMessage(data.error || "Session expired — paste new cookies.");
+        setMessage(data.error || "Session expired — log in again.");
       }
     } catch {
       setMessage("Connection test failed");
@@ -73,7 +104,6 @@ export default function SettingsPage() {
         <h2 className="text-lg font-semibold mb-2">USPA Integration</h2>
         <p className="text-gray-600 text-sm mb-4">
           Automatically verify member status, licenses, and expiration dates.
-          Paste your browser cookies from uspa.org to connect.
         </p>
 
         {/* Status */}
@@ -87,44 +117,77 @@ export default function SettingsPage() {
               Last synced: {new Date(status.updatedAt + "Z").toLocaleString()}
             </span>
           )}
+          {status?.hasSession && (
+            <button onClick={testConnection} disabled={testing}
+              className="text-sm text-blue-600 hover:underline disabled:opacity-50 ml-auto">
+              {testing ? "Testing..." : "Test connection"}
+            </button>
+          )}
         </div>
 
-        {status?.hasSession && (
-          <button onClick={testConnection} disabled={testing}
-            className="mb-4 text-sm text-blue-600 hover:underline disabled:opacity-50">
-            {testing ? "Testing..." : "Test connection"}
-          </button>
-        )}
-
-        {/* Cookie paste */}
+        {/* Login form */}
         <div className="border-t pt-4 space-y-3">
           <h3 className="text-sm font-medium text-gray-700">
-            {status?.hasSession ? "Update Session" : "Connect to USPA"}
+            {status?.hasSession ? "Update Login" : "Log in to USPA"}
           </h3>
-          <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600 space-y-1">
-            <p className="font-medium text-gray-700">How to get cookies:</p>
-            <ol className="list-decimal list-inside space-y-0.5">
-              <li>Log into <a href="https://www.uspa.org/Login" target="_blank" className="text-blue-600 hover:underline">uspa.org</a></li>
-              <li>Open DevTools (Cmd+Option+I)</li>
-              <li>Go to Network tab, click any request</li>
-              <li>Find "Cookie" in Request Headers</li>
-              <li>Copy the full value and paste below</li>
-            </ol>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">USPA Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="your@email.com"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
           </div>
-          <textarea
-            value={cookieStr}
-            onChange={(e) => setCookieStr(e.target.value)}
-            placeholder="Paste cookie string here..."
-            rows={3}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">USPA Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
           <button
-            onClick={saveCookies}
-            disabled={saving || !cookieStr.trim()}
+            onClick={loginWithCredentials}
+            disabled={saving || !email.trim() || !password.trim()}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
           >
-            {saving ? "Connecting..." : "Save & Connect"}
+            {saving ? "Connecting..." : "Connect"}
           </button>
+        </div>
+
+        {/* Advanced: cookie paste */}
+        <div className="border-t mt-4 pt-4">
+          <button
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="text-xs text-gray-500 hover:text-gray-700"
+          >
+            {showAdvanced ? "Hide" : "Show"} advanced (paste cookies)
+          </button>
+          {showAdvanced && (
+            <div className="mt-3 space-y-3">
+              <p className="text-xs text-gray-500">
+                If login fails (e.g. 2FA enabled), paste cookies from your browser instead.
+              </p>
+              <textarea
+                value={cookieStr}
+                onChange={(e) => setCookieStr(e.target.value)}
+                placeholder="Paste cookie string from browser DevTools..."
+                rows={3}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <button
+                onClick={saveCookies}
+                disabled={saving || !cookieStr.trim()}
+                className="bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50"
+              >
+                {saving ? "Connecting..." : "Save Cookies"}
+              </button>
+            </div>
+          )}
         </div>
 
         {message && (
