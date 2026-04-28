@@ -304,7 +304,7 @@ function seed(db: Database.Database) {
   if (pricingCount.count === 0) {
     const pricing = [
       { jump_type: "solo", price: 2800, label: "Solo Full Altitude" },
-      { jump_type: "tandem", price: 23000, label: "Tandem" },
+      { jump_type: "tandem", price: 61700, label: "Tandem (incl. handcam + 3% CC)" },
       { jump_type: "aff", price: 25000, label: "AFF" },
       { jump_type: "hop_n_pop", price: 1800, label: "Hop-n-Pop" },
       { jump_type: "high_altitude", price: 3800, label: "High Altitude" },
