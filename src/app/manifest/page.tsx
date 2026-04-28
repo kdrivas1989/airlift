@@ -663,7 +663,7 @@ export default function ManifestDashboard() {
         </div>
 
         {/* RIGHT COLUMN — Groups + Today's Jumpers */}
-        <div className="w-72 border-l bg-gray-50 flex flex-col overflow-hidden">
+        <div className="w-96 border-l bg-gray-50 flex flex-col overflow-hidden">
           {/* Right panel tabs */}
           <div className="flex border-b">
             <button onClick={() => setRightTab("jumpers")}
