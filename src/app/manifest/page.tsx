@@ -1229,7 +1229,10 @@ function BalanceModal({
   }
 
   async function startCardPayment() {
-    const cents = Math.round(Number(cardAmount) * 100);
+    const base = Number(cardAmount);
+    const fee = Math.ceil(base * 3) / 100;
+    const total = base + fee;
+    const cents = Math.round(total * 100);
     if (!cents || cents < 50) return;
     setCreatingIntent(true);
     try {
@@ -1304,13 +1307,28 @@ function BalanceModal({
           </div>
         )}
 
-        {tab === "card" && !clientSecret && (
+        {tab === "card" && !clientSecret && (() => {
+          const base = Number(cardAmount || 0);
+          const fee = Math.ceil(base * 3) / 100;
+          const total = base + fee;
+          return (
           <div className="space-y-3">
-            <div className="relative">
-              <span className="absolute left-3 top-2.5 text-gray-400">$</span>
-              <input type="number" min="0.50" step="0.01" value={cardAmount} onChange={(e) => setCardAmount(e.target.value)}
-                placeholder="Amount to charge" className="w-full border rounded-lg pl-7 pr-3 py-2" autoFocus />
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Amount (before CC fee)</label>
+              <div className="relative">
+                <span className="absolute left-3 top-2.5 text-gray-400">$</span>
+                <input type="number" min="0.50" step="0.01" value={cardAmount} onChange={(e) => setCardAmount(e.target.value)}
+                  placeholder="0.00" className="w-full border rounded-lg pl-7 pr-3 py-2" autoFocus />
+              </div>
             </div>
+            {base > 0 && (
+              <div className="bg-gray-50 rounded-lg px-3 py-2 text-xs space-y-1">
+                <div className="flex justify-between"><span className="text-gray-500">Amount</span><span>${base.toFixed(2)}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">3% CC fee</span><span>${fee.toFixed(2)}</span></div>
+                <div className="flex justify-between font-bold border-t pt-1"><span>Card total</span><span>${total.toFixed(2)}</span></div>
+                <div className="flex justify-between text-green-700"><span>Credits to account</span><span>${base.toFixed(2)}</span></div>
+              </div>
+            )}
             <input type="text" value={cardDesc} onChange={(e) => setCardDesc(e.target.value)}
               placeholder="Description" className="w-full border rounded-lg px-3 py-2 text-sm" />
             <button
@@ -1318,20 +1336,22 @@ function BalanceModal({
               disabled={creatingIntent || !cardAmount || Number(cardAmount) < 0.5}
               className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 text-sm disabled:opacity-50"
             >
-              {creatingIntent ? "Setting up..." : `Charge $${Number(cardAmount || 0).toFixed(2)}`}
+              {creatingIntent ? "Setting up..." : `Charge $${total.toFixed(2)}`}
             </button>
           </div>
-        )}
+          );
+        })()}
 
         {tab === "card" && clientSecret && stripePromise && (
           <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: "stripe" } }}>
             <CardPaymentForm
-              amountCents={Math.round(Number(cardAmount) * 100)}
+              amountCents={Math.round((Number(cardAmount) + Math.ceil(Number(cardAmount) * 3) / 100) * 100)}
+              baseCents={Math.round(Number(cardAmount) * 100)}
               jumperId={jumper.id}
               description={cardDesc}
-              onSuccess={(cents) => {
-                onAdd(jumper.id, "add_cash", cents / 100, `Card payment $${(cents / 100).toFixed(2)}`);
-                setMsg(`Card charged $${(cents / 100).toFixed(2)}`);
+              onSuccess={(baseCents) => {
+                onAdd(jumper.id, "add_cash", baseCents / 100, `Card payment $${(baseCents / 100).toFixed(2)}`);
+                setMsg(`Charged card — $${(baseCents / 100).toFixed(2)} credited to account`);
                 setClientSecret(null);
                 setCardAmount("");
               }}
@@ -1371,15 +1391,17 @@ function BalanceModal({
 
 function CardPaymentForm({
   amountCents,
+  baseCents,
   jumperId,
   description,
   onSuccess,
   onError,
 }: {
   amountCents: number;
+  baseCents: number;
   jumperId: number;
   description: string;
-  onSuccess: (cents: number) => void;
+  onSuccess: (baseCents: number) => void;
   onError: (msg: string) => void;
 }) {
   const stripe = useStripe();
@@ -1399,7 +1421,16 @@ function CardPaymentForm({
     if (result.error) {
       onError(result.error.message || "Payment failed");
     } else if (result.paymentIntent?.status === "succeeded") {
-      onSuccess(amountCents);
+      // Log the CC fee as a separate transaction
+      const feeCents = amountCents - baseCents;
+      if (feeCents > 0) {
+        await fetch(`/api/jumpers/${jumperId}/balance`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "cc_fee", amount: feeCents / 100, description: `3% CC fee on $${(baseCents / 100).toFixed(2)}` }),
+        });
+      }
+      onSuccess(baseCents);
     }
     setProcessing(false);
   }

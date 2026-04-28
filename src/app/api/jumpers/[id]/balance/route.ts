@@ -60,6 +60,10 @@ export async function POST(
       const cents = Math.round(amount * 100);
       db.prepare("UPDATE jumpers SET balance = balance - ? WHERE id = ?").run(cents, id);
       db.prepare("INSERT INTO balance_transactions (jumper_id, amount, type, description) VALUES (?, ?, ?, ?)").run(id, -cents, "debit", description || `Deducted $${amount.toFixed(2)}`);
+    } else if (type === "cc_fee") {
+      // Record CC fee in ledger only — doesn't affect balance (fee is kept by processor)
+      const feeCents = Math.round(amount * 100);
+      db.prepare("INSERT INTO balance_transactions (jumper_id, amount, type, description) VALUES (?, ?, ?, ?)").run(id, -feeCents, "cc_fee", description || `CC processing fee`);
     } else if (type === "deduct_block") {
       if ((jumper.jump_block_remaining as number) < 1) {
         return NextResponse.json({ error: "No jump blocks remaining" }, { status: 400 });
