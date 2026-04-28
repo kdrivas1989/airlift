@@ -40,8 +40,8 @@ export async function POST(
 
     const tandemCount = db.prepare(tandemQuery).get(...tandemParams) as { count: number };
 
-    // $50 per tandem (in cents)
-    const earningsPerTandem = 5000;
+    const rateSetting = db.prepare("SELECT value FROM settings WHERE key = 'instructor_tandem_rate'").get() as { value: string } | undefined;
+    const earningsPerTandem = rateSetting ? Number(rateSetting.value) : 5000;
     const totalEarnings = tandemCount.count * earningsPerTandem;
 
     if (totalEarnings === 0) {

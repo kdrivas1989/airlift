@@ -92,9 +92,11 @@ export async function GET(
     const isStaff = ((jumper as Record<string, unknown>).person_type as string || "").includes("staff");
     let totalEarnings = 0;
     if (isStaff) {
+      const rateSetting = db.prepare("SELECT value FROM settings WHERE key = 'instructor_tandem_rate'").get() as { value: string } | undefined;
+      const ratePerTandem = rateSetting ? Number(rateSetting.value) : 5000;
+
       for (const ts of tandemStudents) {
-        // TODO: make instructor rate configurable; default $50 per tandem
-        const earnings = 5000; // $50.00 in cents
+        const earnings = ratePerTandem;
         totalEarnings += earnings;
         ledger.push({
           date: ts.created_at as string,

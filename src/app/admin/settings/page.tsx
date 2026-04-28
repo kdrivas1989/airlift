@@ -163,6 +163,53 @@ export default function SettingsPage() {
           </div>
         )}
       </div>
+
+      {/* Instructor Pay Rate */}
+      <InstructorRateSettings />
+    </div>
+  );
+}
+
+function InstructorRateSettings() {
+  const [rate, setRate] = useState("");
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/settings").then(r => r.json()).then(d => {
+      if (d.instructor_tandem_rate) setRate(String(Number(d.instructor_tandem_rate) / 100));
+    });
+  }, []);
+
+  async function save() {
+    const cents = Math.round(Number(rate) * 100);
+    if (!cents || cents < 0) return;
+    await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ instructor_tandem_rate: String(cents) }),
+    });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
+
+  return (
+    <div className="bg-white rounded-xl border p-6 max-w-2xl mt-6">
+      <h2 className="text-lg font-semibold mb-2">Instructor Pay</h2>
+      <p className="text-gray-600 text-sm mb-4">Rate per tandem jump for instructor paycheck calculations.</p>
+      <div className="flex gap-3 items-end">
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Per Tandem ($)</label>
+          <div className="relative">
+            <span className="absolute left-3 top-2 text-gray-400">$</span>
+            <input type="number" min="0" step="0.01" value={rate} onChange={(e) => setRate(e.target.value)}
+              className="border rounded-lg pl-7 pr-3 py-2 w-32 text-sm" />
+          </div>
+        </div>
+        <button onClick={save} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">
+          Save
+        </button>
+        {saved && <span className="text-sm text-green-600">Saved!</span>}
+      </div>
     </div>
   );
 }
