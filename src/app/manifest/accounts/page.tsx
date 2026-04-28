@@ -180,6 +180,8 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
   const [isCustomer, setIsCustomer] = useState(types.includes("customer"));
   const [isStaff, setIsStaff] = useState(types.includes("staff"));
   const [isGround, setIsGround] = useState(types.includes("ground"));
+  const [firstName, setFirstName] = useState(person.firstName);
+  const [lastName, setLastName] = useState(person.lastName);
   const [staffRole, setStaffRole] = useState(person.staffRole || "operator");
   const [staffPassword, setStaffPassword] = useState("");
   const [weight, setWeight] = useState(String(person.weight));
@@ -221,6 +223,8 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
     if (newTypes.length === 0) newTypes.push("customer");
 
     const body: Record<string, unknown> = {
+      firstName,
+      lastName,
       personType: newTypes.join(","),
       weight: Number(weight),
       licenseLevel,
@@ -332,6 +336,20 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
         <div className="flex-1 overflow-y-auto p-5">
           {tab === "profile" ? (
             <div className="space-y-4">
+              {/* Name */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                  <input value={firstName} onChange={(e) => setFirstName(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                  <input value={lastName} onChange={(e) => setLastName(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+              </div>
+
               {/* Type checkboxes */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
