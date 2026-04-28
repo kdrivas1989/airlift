@@ -202,7 +202,7 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
   // Ledger state
   interface LedgerEntry {
     date: string;
-    type: "jump" | "credit" | "debit" | "block_credit" | "block_debit";
+    type: string;
     description: string;
     amount: number | null;
     blocks: number | null;
