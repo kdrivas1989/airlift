@@ -33,10 +33,13 @@ export default function LoginPage() {
     }
 
     // Route based on role
-    if (data.isStaff) {
+    const next = new URLSearchParams(window.location.search).get("next");
+    if (next) {
+      router.push(next);
+    } else if (data.isStaff) {
       router.push("/manifest");
     } else {
-      router.push("/my");
+      router.push("/jump");
     }
   }
 
