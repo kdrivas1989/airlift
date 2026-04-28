@@ -1,9 +1,15 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import WeightGauge from "@/components/WeightGauge";
 import JumperSearch from "@/components/JumperSearch";
 import ComplianceBadge from "@/components/ComplianceBadge";
+
+const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+  ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
+  : null;
 
 interface Aircraft {
   id: number;
@@ -1191,9 +1197,13 @@ function BalanceModal({
   onClose: () => void;
   onAdd: (jumperId: number, type: string, amount: number, description?: string) => void;
 }) {
-  const [tab, setTab] = useState<"packages" | "cash" | "blocks">("packages");
+  const [tab, setTab] = useState<"packages" | "card" | "cash" | "blocks">("packages");
   const [amount, setAmount] = useState("");
   const [msg, setMsg] = useState("");
+  const [cardAmount, setCardAmount] = useState("");
+  const [cardDesc, setCardDesc] = useState("Account deposit");
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [creatingIntent, setCreatingIntent] = useState(false);
 
   function addCash(e: React.FormEvent) {
     e.preventDefault();
@@ -1218,6 +1228,28 @@ function BalanceModal({
     setMsg(`${pkg.label} added — ${pkg.blocks} jump(s)`);
   }
 
+  async function startCardPayment() {
+    const cents = Math.round(Number(cardAmount) * 100);
+    if (!cents || cents < 50) return;
+    setCreatingIntent(true);
+    try {
+      const res = await fetch("/api/payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: cents, jumperId: jumper.id, description: cardDesc }),
+      });
+      const data = await res.json();
+      if (data.clientSecret) {
+        setClientSecret(data.clientSecret);
+      } else {
+        setMsg(data.error || "Failed to create payment");
+      }
+    } catch {
+      setMsg("Payment setup failed");
+    }
+    setCreatingIntent(false);
+  }
+
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-xl p-5 w-96" onClick={(e) => e.stopPropagation()}>
@@ -1238,17 +1270,21 @@ function BalanceModal({
 
         {/* Tabs */}
         <div className="flex rounded-lg border overflow-hidden mb-4">
-          <button onClick={() => setTab("packages")}
+          <button onClick={() => { setTab("packages"); setClientSecret(null); }}
             className={`flex-1 py-1.5 text-xs font-medium ${tab === "packages" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-700"}`}>
-            Jump Packages
+            Packages
           </button>
-          <button onClick={() => setTab("cash")}
+          <button onClick={() => { setTab("card"); setClientSecret(null); }}
+            className={`flex-1 py-1.5 text-xs font-medium ${tab === "card" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-700"}`}>
+            Card
+          </button>
+          <button onClick={() => { setTab("cash"); setClientSecret(null); }}
             className={`flex-1 py-1.5 text-xs font-medium ${tab === "cash" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-700"}`}>
-            Add Cash
+            Cash
           </button>
-          <button onClick={() => setTab("blocks")}
+          <button onClick={() => { setTab("blocks"); setClientSecret(null); }}
             className={`flex-1 py-1.5 text-xs font-medium ${tab === "blocks" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-700"}`}>
-            Add Blocks
+            Blocks
           </button>
         </div>
 
@@ -1266,6 +1302,42 @@ function BalanceModal({
               </button>
             ))}
           </div>
+        )}
+
+        {tab === "card" && !clientSecret && (
+          <div className="space-y-3">
+            <div className="relative">
+              <span className="absolute left-3 top-2.5 text-gray-400">$</span>
+              <input type="number" min="0.50" step="0.01" value={cardAmount} onChange={(e) => setCardAmount(e.target.value)}
+                placeholder="Amount to charge" className="w-full border rounded-lg pl-7 pr-3 py-2" autoFocus />
+            </div>
+            <input type="text" value={cardDesc} onChange={(e) => setCardDesc(e.target.value)}
+              placeholder="Description" className="w-full border rounded-lg px-3 py-2 text-sm" />
+            <button
+              onClick={startCardPayment}
+              disabled={creatingIntent || !cardAmount || Number(cardAmount) < 0.5}
+              className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 text-sm disabled:opacity-50"
+            >
+              {creatingIntent ? "Setting up..." : `Charge $${Number(cardAmount || 0).toFixed(2)}`}
+            </button>
+          </div>
+        )}
+
+        {tab === "card" && clientSecret && stripePromise && (
+          <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: "stripe" } }}>
+            <CardPaymentForm
+              amountCents={Math.round(Number(cardAmount) * 100)}
+              jumperId={jumper.id}
+              description={cardDesc}
+              onSuccess={(cents) => {
+                onAdd(jumper.id, "add_cash", cents / 100, `Card payment $${(cents / 100).toFixed(2)}`);
+                setMsg(`Card charged $${(cents / 100).toFixed(2)}`);
+                setClientSecret(null);
+                setCardAmount("");
+              }}
+              onError={(err) => setMsg(err)}
+            />
+          </Elements>
         )}
 
         {tab === "cash" && (
@@ -1294,5 +1366,54 @@ function BalanceModal({
         {msg && <div className="mt-3 text-sm text-green-700 bg-green-50 px-3 py-2 rounded-lg">{msg}</div>}
       </div>
     </div>
+  );
+}
+
+function CardPaymentForm({
+  amountCents,
+  jumperId,
+  description,
+  onSuccess,
+  onError,
+}: {
+  amountCents: number;
+  jumperId: number;
+  description: string;
+  onSuccess: (cents: number) => void;
+  onError: (msg: string) => void;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [processing, setProcessing] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+    setProcessing(true);
+
+    const result = await stripe.confirmPayment({
+      elements,
+      redirect: "if_required",
+    });
+
+    if (result.error) {
+      onError(result.error.message || "Payment failed");
+    } else if (result.paymentIntent?.status === "succeeded") {
+      onSuccess(amountCents);
+    }
+    setProcessing(false);
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <PaymentElement />
+      <button
+        type="submit"
+        disabled={!stripe || processing}
+        className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 text-sm disabled:opacity-50"
+      >
+        {processing ? "Processing..." : `Pay $${(amountCents / 100).toFixed(2)}`}
+      </button>
+    </form>
   );
 }
