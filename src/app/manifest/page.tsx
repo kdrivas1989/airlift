@@ -501,11 +501,13 @@ export default function ManifestDashboard() {
               {/* Load header */}
               <div className="p-4 border-b bg-gradient-to-r from-white to-gray-50 flex items-center justify-between shadow-sm">
                 <div>
-                  <h1 className="text-xl font-bold">Load #{selectedLoad.loadNumber}</h1>
-                  <p className="text-sm text-gray-600">
-                    {selectedLoad.aircraft.tailNumber} {selectedLoad.aircraft.name && `- ${selectedLoad.aircraft.name}`}
-                    &nbsp;&middot;&nbsp;{selectedLoad.currentWeight.toLocaleString()}/{selectedLoad.maxWeight.toLocaleString()} lbs
-                  </p>
+                  <h1 className="text-xl font-bold">
+                    Load #{selectedLoad.loadNumber}
+                    <span className="text-sm font-normal text-gray-500 ml-2">
+                      {selectedLoad.aircraft.tailNumber} {selectedLoad.aircraft.name && `- ${selectedLoad.aircraft.name}`}
+                      &nbsp;&middot;&nbsp;{selectedLoad.currentWeight.toLocaleString()}/{selectedLoad.maxWeight.toLocaleString()} lbs
+                    </span>
+                  </h1>
                   <div className="flex gap-3 mt-1">
                     <div className={`px-3 py-1 rounded-lg text-xs font-bold ${
                       selectedLoad.openSlots > 0 ? "bg-blue-100 text-blue-800" : "bg-red-100 text-red-800"
