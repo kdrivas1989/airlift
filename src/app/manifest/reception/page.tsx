@@ -51,9 +51,16 @@ export default function ReceptionPage() {
   const [manifestModal, setManifestModal] = useState<number | null>(null);
   const [loads, setLoads] = useState<LoadOption[]>([]);
   const [err, setErr] = useState("");
+  const [checkedInTIs, setCheckedInTIs] = useState<InstructorOption[]>([]);
+  const [tiSearch, setTiSearch] = useState("");
+  const [tiResults, setTiResults] = useState<InstructorOption[]>([]);
 
   const refresh = useCallback(async () => {
-    const r = await fetch("/api/reception"); if (r.ok) { const d = await r.json(); setEntries(d.entries); } setLoading(false);
+    const r = await fetch("/api/reception"); if (r.ok) { const d = await r.json(); setEntries(d.entries); }
+    // Also refresh TI list
+    const cr = await fetch("/api/checkin?date=" + new Date().toISOString().split("T")[0]);
+    if (cr.ok) { const cd = await cr.json(); setCheckedInTIs((cd.jumpers||[]).filter((j: Record<string,unknown>) => ((j.personType as string)||"").includes("staff")).map((j: Record<string,unknown>) => ({id: j.id as number, firstName: j.firstName as string, lastName: j.lastName as string}))); }
+    setLoading(false);
   }, []);
   useEffect(() => { refresh(); const i = setInterval(refresh, 5000); return () => clearInterval(i); }, [refresh]);
 
@@ -64,7 +71,7 @@ export default function ReceptionPage() {
     else { const d = await r.json(); setWalkInError(d.error || "Failed"); }
   }
   async function updateStatus(id: number, status: string) { setErr(""); const r = await fetch(`/api/reception/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) }); if (r.ok) refresh(); else { const d = await r.json(); setErr(d.error || "Failed"); } }
-  async function openPair(id: number) { setErr(""); const r = await fetch("/api/checkin?date=" + new Date().toISOString().split("T")[0]); if (r.ok) { const d = await r.json(); const used = new Set(entries.filter(x => x.instructor_id && !["cancelled","manifested"].includes(x.status)).map(x => x.instructor_id)); setInstructors((d.jumpers||[]).filter((j: Record<string,unknown>) => ((j.jumperType as string)==="tandem_instructor"||(j.licenseLevel as string)==="Tandem") && !used.has(j.id as number)).map((j: Record<string,unknown>) => ({id: j.id as number, firstName: j.firstName as string, lastName: j.lastName as string}))); } setPairModal(id); }
+  async function openPair(id: number) { setErr(""); const r = await fetch("/api/checkin?date=" + new Date().toISOString().split("T")[0]); if (r.ok) { const d = await r.json(); const used = new Set(entries.filter(x => x.instructor_id && !["cancelled","manifested"].includes(x.status)).map(x => x.instructor_id)); setInstructors((d.jumpers||[]).filter((j: Record<string,unknown>) => ((j.personType as string)||"").includes("staff") && !used.has(j.id as number)).map((j: Record<string,unknown>) => ({id: j.id as number, firstName: j.firstName as string, lastName: j.lastName as string}))); } setPairModal(id); }
   async function handlePair(eid: number, tid: number) { setErr(""); const r = await fetch(`/api/reception/${eid}/pair`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ instructorId: tid }) }); if (r.ok) { setPairModal(null); refresh(); } else { const d = await r.json(); setErr(d.error||"Failed"); } }
   async function openManifest(id: number) { setErr(""); const r = await fetch("/api/loads?status=open"); if (r.ok) { const d = await r.json(); setLoads((d.loads||[]).map((l: Record<string,unknown>) => ({id: l.id, loadNumber: l.loadNumber, aircraft: (l.aircraft as Record<string,unknown>)?.tailNumber||"?", slotsAvailable: l.slotsAvailable}))); } setManifestModal(id); }
   async function handleManifest(eid: number, lid: number) { setErr(""); const r = await fetch(`/api/reception/${eid}/manifest`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ loadId: lid }) }); if (r.ok) { setManifestModal(null); refresh(); } else { const d = await r.json(); setErr(d.error||"Failed"); } }
@@ -79,6 +86,57 @@ export default function ReceptionPage() {
         <button onClick={() => setShowWalkIn(true)} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">+ Walk-In</button>
       </div>
       {err && <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{err} <button onClick={() => setErr("")} className="ml-2 font-bold">&times;</button></div>}
+
+      {/* TI Check-In Panel */}
+      <div className="mb-6 bg-white rounded-xl border p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-bold text-sm text-purple-800">Tandem Instructors</h2>
+          <span className="text-xs text-gray-500">{checkedInTIs.length} checked in</span>
+        </div>
+        <div className="flex gap-3 items-start">
+          <div className="flex-1">
+            <div className="flex gap-2">
+              <input
+                value={tiSearch}
+                onChange={(e) => {
+                  setTiSearch(e.target.value);
+                  if (e.target.value.length >= 2) {
+                    fetch(`/api/jumpers?q=${encodeURIComponent(e.target.value)}`).then(r => r.json()).then(d => {
+                      setTiResults((d.jumpers||[]).filter((j: Record<string,unknown>) => ((j.personType as string)||"").includes("staff")).map((j: Record<string,unknown>) => ({id: j.id as number, firstName: j.firstName as string, lastName: j.lastName as string})));
+                    });
+                  } else { setTiResults([]); }
+                }}
+                placeholder="Search instructor to check in..."
+                className="flex-1 border rounded-lg px-3 py-2 text-sm"
+              />
+            </div>
+            {tiResults.length > 0 && (
+              <div className="mt-1 border rounded-lg max-h-32 overflow-y-auto">
+                {tiResults.map(ti => (
+                  <button key={ti.id} onClick={async () => {
+                    await fetch("/api/checkin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jumperId: ti.id }) });
+                    setTiSearch(""); setTiResults([]); refresh();
+                  }} className="w-full text-left px-3 py-2 text-sm hover:bg-purple-50 border-b last:border-0">
+                    {ti.firstName} {ti.lastName}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            {checkedInTIs.map(ti => {
+              const paired = entries.some(e => e.instructor_id === ti.id && !["cancelled","manifested"].includes(e.status));
+              return (
+                <span key={ti.id} className={`px-2 py-1 rounded-full text-xs font-medium ${paired ? "bg-purple-100 text-purple-700" : "bg-green-100 text-green-700"}`}>
+                  {ti.firstName} {ti.lastName[0]}.
+                  {paired && " (paired)"}
+                </span>
+              );
+            })}
+            {checkedInTIs.length === 0 && <span className="text-xs text-gray-400">No TIs checked in</span>}
+          </div>
+        </div>
+      </div>
 
       <div className="grid grid-cols-5 gap-3 min-h-[60vh]">
         {COLUMNS.map(col => { const items = entries.filter(e => e.status === col); const c = STATUS_CFG[col]; return (
