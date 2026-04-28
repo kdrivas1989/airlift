@@ -98,7 +98,11 @@ export default function ManifestDashboard() {
   const [groups, setGroups] = useState<JumpGroup[]>([]);
   const [showGroupCreate, setShowGroupCreate] = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
-  const [rightTab, setRightTab] = useState<"jumpers" | "tandems">("jumpers");
+  const [rightTab, setRightTab] = useState<"jumpers" | "tandems" | "area">("jumpers");
+  const [dzLat, setDzLat] = useState<string>("");
+  const [dzLng, setDzLng] = useState<string>("");
+  const [dzName, setDzName] = useState<string>("");
+  const [editingLocation, setEditingLocation] = useState(false);
   const [tandemStandby, setTandemStandby] = useState<CheckedInJumper[]>([]);
 
   // Auto-timer state
@@ -130,6 +134,11 @@ export default function ManifestDashboard() {
     fetchCheckedIn();
     fetchGroups();
     fetch("/api/aircraft").then((r) => r.json()).then((data) => setAircraft(data.aircraft || []));
+    fetch("/api/settings").then((r) => r.json()).then((data) => {
+      if (data.dz_lat) setDzLat(data.dz_lat);
+      if (data.dz_lng) setDzLng(data.dz_lng);
+      if (data.dz_name) setDzName(data.dz_name);
+    });
     const interval = setInterval(() => { fetchLoads(); fetchCheckedIn(); }, 5000);
     return () => clearInterval(interval);
   }, [fetchLoads, fetchCheckedIn]);
@@ -507,6 +516,23 @@ export default function ManifestDashboard() {
                     <option value="in_flight">In Flight</option>
                     <option value="landed">Landed</option>
                   </select>
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`Delete Load #${selectedLoad.loadNumber}? This will remove all manifest entries.`)) return;
+                      const res = await fetch(`/api/loads/${selectedLoad.id}`, { method: "DELETE" });
+                      if (res.ok) {
+                        setSelectedLoadId(null);
+                        fetchLoads();
+                      } else {
+                        const data = await res.json();
+                        setError(data.error || "Failed to delete load");
+                      }
+                    }}
+                    className="px-2 py-1.5 rounded-lg text-xs font-medium border-2 border-red-300 bg-red-50 text-red-700 hover:bg-red-100"
+                    title="Delete load"
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
 
@@ -624,6 +650,10 @@ export default function ManifestDashboard() {
                   {checkedIn.filter(j => j.checkinType === "tandem" && !manifestedJumperIds.has(j.id)).length}
                 </span>
               )}
+            </button>
+            <button onClick={() => setRightTab("area")}
+              className={`flex-1 py-2 text-xs font-medium ${rightTab === "area" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500"}`}>
+              Area
             </button>
           </div>
 
@@ -840,6 +870,64 @@ export default function ManifestDashboard() {
                 )}
               </div>
             </>
+          )}
+
+          {rightTab === "area" && (
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {dzLat && dzLng && !editingLocation ? (
+                <>
+                  <div className="p-2 border-b flex items-center justify-between">
+                    <span className="text-xs text-gray-600 truncate">{dzName || "Dropzone"}</span>
+                    <button onClick={() => setEditingLocation(true)} className="text-[10px] text-blue-600 hover:underline">Edit</button>
+                  </div>
+                  <div className="flex-1">
+                    <iframe
+                      width="100%"
+                      height="100%"
+                      style={{ border: 0 }}
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                      src={`https://www.google.com/maps/embed/v1/view?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&center=${dzLat},${dzLng}&zoom=17&maptype=satellite`}
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="p-4 space-y-3">
+                  <p className="text-xs text-gray-600">Set your dropzone location for the satellite area view.</p>
+                  <div>
+                    <label className="text-[10px] text-gray-500">DZ Name</label>
+                    <input type="text" value={dzName} onChange={(e) => setDzName(e.target.value)}
+                      placeholder="e.g. Skydive Orange" className="w-full border rounded px-2 py-1 text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-500">Latitude</label>
+                    <input type="text" value={dzLat} onChange={(e) => setDzLat(e.target.value)}
+                      placeholder="e.g. 38.2466" className="w-full border rounded px-2 py-1 text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-500">Longitude</label>
+                    <input type="text" value={dzLng} onChange={(e) => setDzLng(e.target.value)}
+                      placeholder="e.g. -78.0577" className="w-full border rounded px-2 py-1 text-sm" />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        if (!dzLat || !dzLng) return;
+                        fetch("/api/settings", {
+                          method: "PUT",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ dz_lat: dzLat, dz_lng: dzLng, dz_name: dzName }),
+                        }).then(() => setEditingLocation(false));
+                      }}
+                      className="bg-blue-600 text-white text-xs px-3 py-1 rounded hover:bg-blue-700"
+                    >Save</button>
+                    {dzLat && dzLng && (
+                      <button onClick={() => setEditingLocation(false)} className="text-xs px-3 py-1 rounded border hover:bg-gray-50">Cancel</button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>

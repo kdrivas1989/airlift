@@ -42,8 +42,6 @@ export async function POST(request: NextRequest) {
 
   if (!jumper) {
     // Create new jumper account — pre-approved for manifesting (boogie registration)
-    const now = new Date().toISOString();
-    const reserveDate = now.split("T")[0]; // today, valid for 180 days
     // Generate a random password for the jumper's login
     generatedPassword = Math.random().toString(36).slice(2, 10); // 8 char alphanumeric
     const pwHash = hashPassword(generatedPassword);
@@ -52,8 +50,8 @@ export async function POST(request: NextRequest) {
       INSERT INTO jumpers (first_name, last_name, email, phone, date_of_birth, weight, license_level, balance, jump_block_remaining,
         uspa_number, uspa_status, uspa_verified_at, reserve_pack_date, password_hash)
       VALUES (?, ?, ?, ?, '1990-01-01', 180, 'unknown', 0, 0,
-        NULL, 'Active', ?, ?, ?)
-    `).run(firstName, lastName, email, phone || null, now, reserveDate, pwHash);
+        NULL, NULL, NULL, NULL, ?)
+    `).run(firstName, lastName, email, phone || null, pwHash);
 
     const newId = result.lastInsertRowid;
     jumper = db.prepare("SELECT * FROM jumpers WHERE id = ?").get(newId) as Record<string, unknown>;

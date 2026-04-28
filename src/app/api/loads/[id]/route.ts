@@ -40,3 +40,27 @@ export async function PATCH(
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    await requireAuth();
+    const { id } = await params;
+    const db = getDb();
+
+    const load = db.prepare("SELECT * FROM loads WHERE id = ?").get(id) as Record<string, unknown> | undefined;
+    if (!load) return NextResponse.json({ error: "Load not found" }, { status: 404 });
+
+    // Delete manifest entries first, then the load
+    db.prepare("DELETE FROM manifest_entries WHERE load_id = ?").run(id);
+    db.prepare("DELETE FROM loads WHERE id = ?").run(id);
+
+    return NextResponse.json({ deleted: true });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed";
+    if (message === "UNAUTHORIZED") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
