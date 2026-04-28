@@ -480,7 +480,6 @@ export default function ManifestDashboard() {
                   )}
                   {load.slotsAvailable === 0 && <span className="text-red-600 font-bold">FULL</span>}
                 </div>
-                <WeightGauge current={load.currentWeight} max={load.maxWeight} compact />
                 {load.departureTime && <DepartureCountdown departureTime={load.departureTime} compact />}
               </button>
             ))}
