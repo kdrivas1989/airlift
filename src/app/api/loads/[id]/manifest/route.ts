@@ -121,6 +121,11 @@ export async function DELETE(
 
     db.prepare("DELETE FROM manifest_entries WHERE load_id = ? AND jumper_id = ?").run(loadId, jumperId);
 
+    // Reset tandem reception status if this jumper was manifested via reception
+    db.prepare(
+      "UPDATE tandem_reception SET status = 'paired', load_id = NULL, updated_at = datetime('now') WHERE jumper_id = ? AND load_id = ? AND status = 'manifested'"
+    ).run(jumperId, loadId);
+
     // Re-number exit orders
     const remaining = db.prepare(
       "SELECT id FROM manifest_entries WHERE load_id = ? ORDER BY exit_order"
