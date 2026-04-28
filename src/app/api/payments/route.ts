@@ -19,9 +19,11 @@ export async function POST(request: NextRequest) {
       amount, // in cents
       currency: "usd",
       metadata: {
+        source: "airlift",
         jumperId: String(jumperId),
         description: description || "AirLIFT payment",
       },
+      statement_descriptor_suffix: "AIRLIFT",
     });
 
     return NextResponse.json({ clientSecret: paymentIntent.client_secret });
