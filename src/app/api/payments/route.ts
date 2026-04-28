@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
         jumperId: String(jumperId),
         description: description || "AirLIFT payment",
       },
-      statement_descriptor_suffix: "AIRLIFT",
+      statement_descriptor_suffix: "ALTER EGO ADV",
     });
 
     return NextResponse.json({ clientSecret: paymentIntent.client_secret });
