@@ -75,6 +75,15 @@ export async function DELETE(request: NextRequest) {
   const editable = checkLoadEditable(db, loadId);
   if (!editable.ok) return NextResponse.json({ error: editable.error }, { status: 400 });
 
+  // Block self-removal within 10 minutes of departure
+  const load = db.prepare("SELECT departure_time FROM loads WHERE id = ?").get(loadId) as { departure_time: string | null } | undefined;
+  if (load?.departure_time) {
+    const minsUntilDep = (new Date(load.departure_time).getTime() - Date.now()) / 60000;
+    if (minsUntilDep <= 10) {
+      return NextResponse.json({ error: "Cannot leave load within 10 minutes of departure. See manifest staff." }, { status: 400 });
+    }
+  }
+
   const entry = db.prepare(
     "SELECT * FROM manifest_entries WHERE load_id = ? AND jumper_id = ?"
   ).get(loadId, jumperId) as { ticket_price: number } | undefined;

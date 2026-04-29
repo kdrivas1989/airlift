@@ -218,13 +218,21 @@ export default function JumpPage() {
               )}
 
               {/* Action */}
-              {onThis ? (
-                <button
-                  onClick={() => leaveLoad(load.id)}
-                  className="w-full py-2.5 rounded-lg border-2 border-red-200 text-red-700 font-medium text-sm hover:bg-red-50"
-                >
-                  Leave Load
-                </button>
+              {onThis ? (() => {
+                const locked = load.departureTime && (new Date(load.departureTime).getTime() - Date.now()) <= 10 * 60000;
+                return locked ? (
+                  <div className="w-full py-2.5 rounded-lg bg-gray-100 text-gray-500 font-medium text-sm text-center">
+                    Locked — see manifest staff to remove
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => leaveLoad(load.id)}
+                    className="w-full py-2.5 rounded-lg border-2 border-red-200 text-red-700 font-medium text-sm hover:bg-red-50"
+                  >
+                    Leave Load
+                  </button>
+                );
+              })()
               ) : (
                 <button
                   onClick={() => joinLoad(load.id)}
