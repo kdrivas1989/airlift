@@ -15,12 +15,12 @@ export async function POST(
     if (!load) return NextResponse.json({ error: "Load not found" }, { status: 404 });
 
     if (load.paused_at) {
-      // Resume: shift departure_time forward by paused duration
-      const pausedAt = new Date(load.paused_at as string).getTime();
-      const pausedMs = Date.now() - pausedAt;
-
+      // Resume: set departure to now + whatever time was remaining when paused
       if (load.departure_time) {
-        const newDep = new Date(new Date(load.departure_time as string).getTime() + pausedMs).toISOString();
+        const pausedAt = new Date(load.paused_at as string).getTime();
+        const depTime = new Date(load.departure_time as string).getTime();
+        const remainingMs = Math.max(0, depTime - pausedAt);
+        const newDep = new Date(Date.now() + remainingMs).toISOString();
         db.prepare("UPDATE loads SET departure_time = ?, paused_at = NULL WHERE id = ?").run(newDep, id);
       } else {
         db.prepare("UPDATE loads SET paused_at = NULL WHERE id = ?").run(id);
