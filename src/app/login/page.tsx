@@ -8,6 +8,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [staffUser, setStaffUser] = useState<{ name: string } | null>(null);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -37,10 +38,38 @@ export default function LoginPage() {
     if (next) {
       router.push(next);
     } else if (data.isStaff) {
-      router.push("/manifest");
+      // Staff can choose view
+      setStaffUser(data);
+      setLoading(false);
+      return;
     } else {
       router.push("/jump");
     }
+  }
+
+  if (staffUser) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <div className="w-full max-w-sm">
+          <h1 className="text-3xl font-bold text-center mb-2">AirLIFT</h1>
+          <p className="text-gray-600 text-center mb-6">Welcome, {staffUser.name}</p>
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={() => router.push("/manifest")}
+              className="w-full bg-gray-800 text-white py-3 rounded-lg font-semibold hover:bg-gray-900 transition"
+            >
+              Staff View
+            </button>
+            <button
+              onClick={() => router.push("/jump")}
+              className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
+            >
+              Jumper View
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
