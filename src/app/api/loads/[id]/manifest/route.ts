@@ -98,20 +98,22 @@ export async function DELETE(
 
     if (!entry) return NextResponse.json({ error: "Entry not found" }, { status: 404 });
 
+    const loadInfo = db.prepare("SELECT load_number FROM loads WHERE id = ?").get(loadId) as { load_number: number };
+
     // Refund block or balance
     const removedEntry = entry as { ticket_price: number; jump_type: string };
     if (removedEntry.ticket_price > 0) {
       // Check if a block was deducted (look for recent block_debit)
       const blockDebit = db.prepare(
         "SELECT id FROM balance_transactions WHERE jumper_id = ? AND type = 'block_debit' AND (description LIKE ? OR description LIKE ?) ORDER BY created_at DESC LIMIT 1"
-      ).get(jumperId, `Load #${load.load_number}%`, `Load #${loadId}%`) as { id: number } | undefined;
+      ).get(jumperId, `Load #${loadInfo.load_number}%`, `Load #${loadId}%`) as { id: number } | undefined;
       if (blockDebit) {
         db.prepare("UPDATE jumpers SET jump_block_remaining = jump_block_remaining + 1 WHERE id = ?").run(jumperId);
         db.prepare("DELETE FROM balance_transactions WHERE id = ?").run(blockDebit.id);
       } else {
         const cashDebit = db.prepare(
           "SELECT id, amount FROM balance_transactions WHERE jumper_id = ? AND type = 'debit' AND (description LIKE ? OR description LIKE ?) ORDER BY created_at DESC LIMIT 1"
-        ).get(jumperId, `Load #${load.load_number}%`, `Load #${loadId}%`) as { id: number; amount: number } | undefined;
+        ).get(jumperId, `Load #${loadInfo.load_number}%`, `Load #${loadId}%`) as { id: number; amount: number } | undefined;
         if (cashDebit) {
           db.prepare("UPDATE jumpers SET balance = balance + ? WHERE id = ?").run(Math.abs(cashDebit.amount), jumperId);
           db.prepare("DELETE FROM balance_transactions WHERE id = ?").run(cashDebit.id);
