@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { href: "/manifest/reception", label: "Reception" },
   { href: "/manifest/instructors", label: "Instructors" },
   { href: "/manifest", label: "Manifest", exact: true },
+  { href: "/manifest/block-jumps", label: "Block Jumps" },
   { href: "/manifest/accounts", label: "Accounts" },
 ];
 
