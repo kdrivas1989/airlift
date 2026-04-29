@@ -100,9 +100,10 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="text-center text-sm text-gray-500 mt-4">
-          New here? <Link href="/register" className="text-blue-600 hover:underline">Register</Link>
-        </p>
+        <div className="text-center text-sm text-gray-500 mt-4 space-y-1">
+          <p><Link href="/forgot-password" className="text-blue-600 hover:underline">Forgot password?</Link></p>
+          <p>New here? <Link href="/register" className="text-blue-600 hover:underline">Register</Link></p>
+        </div>
       </div>
     </div>
   );

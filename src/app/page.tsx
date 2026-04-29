@@ -14,10 +14,16 @@ export default function Home() {
           Join a Load
         </Link>
         <Link
-          href="/register"
+          href="/setup"
           className="bg-gray-700 text-white text-center py-3 px-6 rounded-lg font-semibold hover:bg-gray-800 transition"
         >
-          New Jumper Registration
+          Set Up Account
+        </Link>
+        <Link
+          href="/register"
+          className="text-gray-500 text-center py-2 text-sm hover:text-gray-700 transition"
+        >
+          New Registration
         </Link>
         <Link
           href="/login"
