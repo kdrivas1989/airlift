@@ -38,7 +38,15 @@ export async function GET(request: NextRequest) {
         ORDER BY me.exit_order
       `).all(load.id) as Array<Record<string, unknown>>;
 
-      const jumperWeightTotal = manifest.reduce((sum, m) => sum + (m.weight as number), 0);
+      // Include instructor weight for tandems (paired_with entries)
+      const jumperWeightTotal = manifest.reduce((sum, m) => {
+        let w = m.weight as number;
+        if (m.paired_with) {
+          const ti = db.prepare("SELECT weight FROM jumpers WHERE id = ?").get(m.paired_with) as { weight: number } | undefined;
+          if (ti) w += ti.weight;
+        }
+        return sum + w;
+      }, 0);
       const currentWeight = (load.empty_weight as number) + (load.fuel_weight as number) + jumperWeightTotal;
 
       return {
@@ -56,10 +64,10 @@ export async function GET(request: NextRequest) {
         status: load.status,
         createdAt: load.created_at,
         departureTime: load.departure_time || null,
-        slotsUsed: manifest.length,
-        slotsAvailable: (load.slot_count as number) - manifest.length,
+        slotsUsed: manifest.reduce((n, m) => n + (m.paired_with ? 2 : 1), 0),
+        slotsAvailable: (load.slot_count as number) - manifest.reduce((n, m) => n + (m.paired_with ? 2 : 1), 0),
         reservedOrganizerSlots: (load.reserved_organizer_slots as number) || 0,
-        openSlots: (load.slot_count as number) - ((load.reserved_organizer_slots as number) || 0) - manifest.filter(m => m.jump_type !== "organizer").length,
+        openSlots: (load.slot_count as number) - ((load.reserved_organizer_slots as number) || 0) - manifest.filter(m => m.jump_type !== "organizer").reduce((n, m) => n + (m.paired_with ? 2 : 1), 0),
         currentWeight,
         maxWeight: load.max_gross_weight,
         manifest: manifest.map((m) => ({

@@ -103,25 +103,25 @@ export function checkSlots(db: Database.Database, loadId: number, jumpType?: str
   const aircraft = db.prepare("SELECT * FROM aircraft WHERE id = ?").get(load.aircraft_id) as AircraftRow | undefined;
   if (!aircraft) return { ok: false, error: "Aircraft not found" };
 
-  const entryCount = db.prepare(
-    "SELECT COUNT(*) as count FROM manifest_entries WHERE load_id = ?"
-  ).get(loadId) as { count: number };
+  // Count slots used — tandems (paired_with set) count as 2
+  const totalUsed = db.prepare(
+    "SELECT COALESCE(SUM(CASE WHEN paired_with IS NOT NULL THEN 2 ELSE 1 END), 0) as slots FROM manifest_entries WHERE load_id = ?"
+  ).get(loadId) as { slots: number };
 
   const isOrganizer = jumpType === "organizer";
   const maxSlots = isOrganizer
     ? aircraft.slot_count
     : aircraft.slot_count - (aircraft.reserved_organizer_slots || 0);
 
-  // For non-organizers, count non-organizer entries against the reduced limit
+  // For non-organizers, count non-organizer slots against the reduced limit
   if (!isOrganizer) {
-    const regularCount = db.prepare(
-      "SELECT COUNT(*) as count FROM manifest_entries WHERE load_id = ? AND jump_type != 'organizer'"
-    ).get(loadId) as { count: number };
-    if (regularCount.count >= maxSlots) {
+    const regularUsed = db.prepare(
+      "SELECT COALESCE(SUM(CASE WHEN paired_with IS NOT NULL THEN 2 ELSE 1 END), 0) as slots FROM manifest_entries WHERE load_id = ? AND jump_type != 'organizer'"
+    ).get(loadId) as { slots: number };
+    if (regularUsed.slots >= maxSlots) {
       return { ok: false, error: "No slots available" };
     }
   } else {
-    // Organizers check against total
     const organizerCount = db.prepare(
       "SELECT COUNT(*) as count FROM manifest_entries WHERE load_id = ? AND jump_type = 'organizer'"
     ).get(loadId) as { count: number };
@@ -131,7 +131,7 @@ export function checkSlots(db: Database.Database, loadId: number, jumpType?: str
   }
 
   // Hard cap: nobody can exceed total slot count
-  if (entryCount.count >= aircraft.slot_count) {
+  if (totalUsed.slots >= aircraft.slot_count) {
     return { ok: false, error: "Aircraft is full" };
   }
 
@@ -252,10 +252,12 @@ export function getLoadStats(db: Database.Database, loadId: number) {
   const load = db.prepare("SELECT * FROM loads WHERE id = ?").get(loadId) as LoadRow;
   const aircraft = db.prepare("SELECT * FROM aircraft WHERE id = ?").get(load.aircraft_id) as AircraftRow;
 
+  // Include paired_with (instructor) weight for tandems
   const jumperWeight = db.prepare(
-    `SELECT COALESCE(SUM(j.weight), 0) as total
+    `SELECT COALESCE(SUM(j.weight), 0) + COALESCE(SUM(CASE WHEN me.paired_with IS NOT NULL THEN pj.weight ELSE 0 END), 0) as total
      FROM manifest_entries me
      JOIN jumpers j ON j.id = me.jumper_id
+     LEFT JOIN jumpers pj ON pj.id = me.paired_with
      WHERE me.load_id = ?`
   ).get(loadId) as { total: number };
 
