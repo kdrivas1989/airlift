@@ -22,7 +22,7 @@ export default function BlockJumpsPage() {
       .then((data) => {
         const withBlocks = (data.jumpers || [])
           .filter((j: BlockJumper) => j.jumpBlockRemaining > 0)
-          .sort((a: BlockJumper, b: BlockJumper) => b.jumpBlockRemaining - a.jumpBlockRemaining);
+          .sort((a: BlockJumper, b: BlockJumper) => `${a.lastName}${a.firstName}`.localeCompare(`${b.lastName}${b.firstName}`));
         setJumpers(withBlocks);
         setLoading(false);
       });
