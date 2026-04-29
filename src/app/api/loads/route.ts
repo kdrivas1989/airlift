@@ -64,6 +64,7 @@ export async function GET(request: NextRequest) {
         status: load.status,
         createdAt: load.created_at,
         departureTime: load.departure_time || null,
+        pausedAt: load.paused_at || null,
         slotsUsed: manifest.reduce((n, m) => n + (m.paired_with ? 2 : 1), 0),
         slotsAvailable: (load.slot_count as number) - manifest.reduce((n, m) => n + (m.paired_with ? 2 : 1), 0),
         reservedOrganizerSlots: (load.reserved_organizer_slots as number) || 0,

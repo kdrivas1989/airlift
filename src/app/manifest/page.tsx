@@ -43,6 +43,7 @@ interface LoadData {
   maxWeight: number;
   manifest: ManifestEntry[];
   departureTime: string | null;
+  pausedAt: string | null;
 }
 
 interface CheckedInJumper {
@@ -480,7 +481,7 @@ export default function ManifestDashboard() {
                     {STATUS_LABELS[load.status]}
                   </span>
                 </div>
-                {load.departureTime && <DepartureCountdown departureTime={load.departureTime} compact />}
+                {load.departureTime && <DepartureCountdown departureTime={load.departureTime} compact paused={!!load.pausedAt} />}
               </button>
             ))}
             {loads.length === 0 && (
@@ -523,7 +524,22 @@ export default function ManifestDashboard() {
                     )}
                   </div>
                   {selectedLoad.departureTime && (
-                    <DepartureCountdown departureTime={selectedLoad.departureTime} />
+                    <div className="flex items-center gap-2">
+                      <DepartureCountdown departureTime={selectedLoad.departureTime} paused={!!selectedLoad.pausedAt} />
+                      <button
+                        onClick={async () => {
+                          await fetch(`/api/loads/${selectedLoad.id}/pause`, { method: "POST" });
+                          fetchLoads();
+                        }}
+                        className={`px-2 py-1 rounded text-xs font-medium ${
+                          selectedLoad.pausedAt
+                            ? "bg-green-100 text-green-700 hover:bg-green-200"
+                            : "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
+                        }`}
+                      >
+                        {selectedLoad.pausedAt ? "Resume" : "Pause"}
+                      </button>
+                    </div>
                   )}
                   {editable && (
                     <SetDepartureButton loadId={selectedLoad.id} loadNumber={selectedLoad.loadNumber} loads={loads} cycleMinutes={cycleMinutes} onSet={() => fetchLoads()} hasExisting={!!selectedLoad.departureTime} />
@@ -1003,7 +1019,7 @@ export default function ManifestDashboard() {
   );
 }
 
-function DepartureCountdown({ departureTime, compact }: { departureTime: string; compact?: boolean }) {
+function DepartureCountdown({ departureTime, compact, paused }: { departureTime: string; compact?: boolean; paused?: boolean }) {
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
@@ -1024,19 +1040,19 @@ function DepartureCountdown({ departureTime, compact }: { departureTime: string;
 
   if (compact) {
     return (
-      <div className={`text-[10px] mt-1 font-mono ${isPast ? "text-red-600 font-bold" : mins <= 5 ? "text-orange-600 font-bold" : "text-gray-600"}`}>
-        {isPast ? `LATE ${mins}:${secs.toString().padStart(2, "0")}` : `T-${mins}:${secs.toString().padStart(2, "0")}`} ({timeStr})
+      <div className={`text-[10px] mt-1 font-mono ${paused ? "text-yellow-600 font-bold animate-pulse" : isPast ? "text-red-600 font-bold" : mins <= 5 ? "text-orange-600 font-bold" : "text-gray-600"}`}>
+        {paused ? `PAUSED` : isPast ? `LATE ${mins}:${secs.toString().padStart(2, "0")}` : `T-${mins}:${secs.toString().padStart(2, "0")}`} ({timeStr})
       </div>
     );
   }
 
   return (
-    <div className={`mt-1 flex items-center gap-2 text-sm ${isPast ? "text-red-600" : mins <= 5 ? "text-orange-600" : "text-gray-700"}`}>
+    <div className={`mt-1 flex items-center gap-2 text-sm ${paused ? "text-yellow-600" : isPast ? "text-red-600" : mins <= 5 ? "text-orange-600" : "text-gray-700"}`}>
       <span className="font-mono font-bold text-lg">
-        {isPast ? `+${mins}:${secs.toString().padStart(2, "0")}` : `${mins}:${secs.toString().padStart(2, "0")}`}
+        {paused ? "PAUSED" : isPast ? `+${mins}:${secs.toString().padStart(2, "0")}` : `${mins}:${secs.toString().padStart(2, "0")}`}
       </span>
       <span className="text-xs">
-        {isPast ? "past departure" : "to departure"} &middot; {timeStr}
+        {paused ? "timer paused" : isPast ? "past departure" : "to departure"} &middot; {timeStr}
       </span>
     </div>
   );

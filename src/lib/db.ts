@@ -226,6 +226,9 @@ function migrate(db: Database.Database) {
   if (!loadColNames.includes("departure_time")) {
     db.exec("ALTER TABLE loads ADD COLUMN departure_time TEXT");
   }
+  if (!loadColNames.includes("paused_at")) {
+    db.exec("ALTER TABLE loads ADD COLUMN paused_at TEXT");
+  }
 
   // Add checkin_type and paperwork_complete to checkins
   const ciCols = db.prepare("PRAGMA table_info(checkins)").all() as Array<{ name: string }>;
