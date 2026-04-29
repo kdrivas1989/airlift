@@ -131,36 +131,40 @@ export default function JumpPage() {
       )}
 
       {/* Jump type & formation selector */}
-      {me?.isOrganizer ? (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-4">
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-1 bg-emerald-200 text-emerald-800 rounded-full text-xs font-bold">ORGANIZER</span>
-            <span className="text-sm text-emerald-700">You have reserved organizer slots</span>
-          </div>
+      <div className="bg-white rounded-xl border p-4 mb-4">
+        <div className="flex items-center gap-2 mb-3">
+          <button
+            onClick={() => setJumpType("solo")}
+            className={`px-3 py-1.5 rounded-lg text-sm font-bold border-2 transition ${
+              jumpType === "solo" ? "bg-blue-100 text-blue-800 border-blue-500" : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
+            }`}
+          >14k</button>
+          {me?.isOrganizer && (
+            <button
+              onClick={() => setJumpType("organizer")}
+              className={`px-3 py-1.5 rounded-lg text-sm font-bold border-2 transition ${
+                jumpType === "organizer" ? "bg-emerald-100 text-emerald-800 border-emerald-500" : "bg-white text-emerald-600 border-gray-200 hover:border-emerald-300"
+              }`}
+            >Organizer</button>
+          )}
         </div>
-      ) : (
-        <div className="bg-white rounded-xl border p-4 mb-4">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="px-3 py-1.5 rounded-lg text-sm font-bold bg-blue-100 text-blue-800 border-2 border-blue-500">14k</span>
-          </div>
-          <label className="block text-xs text-gray-500 mb-2">Formation</label>
-          <div className="flex gap-2 flex-wrap">
-            {FORMATIONS.map(f => (
-              <button
-                key={f.value}
-                onClick={() => setFormation(f.value)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium border-2 transition ${
-                  formation === f.value
-                    ? "border-blue-500 bg-blue-50 text-blue-800"
-                    : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
+        <label className="block text-xs text-gray-500 mb-2">Formation</label>
+        <div className="flex gap-2 flex-wrap">
+          {FORMATIONS.map(f => (
+            <button
+              key={f.value}
+              onClick={() => setFormation(f.value)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium border-2 transition ${
+                formation === f.value
+                  ? "border-blue-500 bg-blue-50 text-blue-800"
+                  : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
         </div>
-      )}
+      </div>
 
       {/* Messages */}
       {msg && <div className="mb-4 text-sm text-green-700 bg-green-50 px-4 py-3 rounded-xl">{msg}</div>}
