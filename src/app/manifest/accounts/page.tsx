@@ -27,7 +27,7 @@ interface Person {
   staffActive: number;
 }
 
-const TYPE_OPTIONS = ["customer", "staff", "ground"] as const;
+const TYPE_OPTIONS = ["customer", "staff", "ground", "organizer", "student", "videographer"] as const;
 
 export default function PeoplePage() {
   const [people, setPeople] = useState<Person[]>([]);
