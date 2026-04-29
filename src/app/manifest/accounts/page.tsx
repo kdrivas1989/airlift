@@ -306,7 +306,7 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-[480px] max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white rounded-xl shadow-xl w-[700px] max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="p-5 border-b">
           <div className="flex justify-between items-start">
