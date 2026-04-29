@@ -30,8 +30,6 @@ const JUMP_TYPES = [
   { value: "solo", label: "Solo" },
   { value: "hop_n_pop", label: "Hop-n-Pop" },
   { value: "high_altitude", label: "High Alt" },
-  { value: "coach", label: "Coach" },
-  { value: "video", label: "Video" },
 ];
 
 export default function JumpPage() {

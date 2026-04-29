@@ -117,14 +117,15 @@ export async function getSession(): Promise<AuthUser | null> {
   // Try legacy staff table first (avoids ID collision with jumpers table)
   const staff = db.prepare("SELECT * FROM staff WHERE id = ? AND active = 1").get(session.staff_id) as LegacyStaffRow | undefined;
   if (staff) {
-    // Check if this staff member has been migrated to jumpers
-    const jumperByEmail = db.prepare("SELECT * FROM jumpers WHERE email = ? AND person_type LIKE '%staff%'").get(staff.email) as JumperRow | undefined;
+    // Always resolve to the jumper record by email if one exists
+    const jumperByEmail = db.prepare("SELECT * FROM jumpers WHERE email = ?").get(staff.email) as JumperRow | undefined;
     if (jumperByEmail) {
+      const isStaff = (jumperByEmail.person_type || "").includes("staff") || !!jumperByEmail.staff_role;
       return {
         staffId: jumperByEmail.id, email: jumperByEmail.email,
         name: `${jumperByEmail.first_name} ${jumperByEmail.last_name}`.trim(),
         role: (jumperByEmail.staff_role || staff.role || "operator") as AuthUser["role"],
-        isStaff: true, personType: jumperByEmail.person_type || "staff",
+        isStaff: isStaff || staff.role === "admin", personType: jumperByEmail.person_type || "customer",
       };
     }
     return {
