@@ -27,7 +27,7 @@ interface MeData {
 }
 
 const JUMP_TYPES = [
-  { value: "solo", label: "Solo" },
+  { value: "solo", label: "14k" },
   { value: "hop_n_pop", label: "Hop-n-Pop" },
   { value: "high_altitude", label: "High Alt" },
 ];
