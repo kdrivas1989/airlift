@@ -30,10 +30,19 @@ const JUMP_TYPES = [
   { value: "solo", label: "14k" },
 ];
 
+const FORMATIONS = [
+  { value: "belly", label: "Belly" },
+  { value: "freefly", label: "Freefly" },
+  { value: "wingsuit", label: "Wingsuit" },
+  { value: "angle", label: "Angle" },
+  { value: "canopy_flocking", label: "Canopy Flocking" },
+];
+
 export default function JumpPage() {
   const [loads, setLoads] = useState<LoadData[]>([]);
   const [me, setMe] = useState<MeData | null>(null);
   const [jumpType, setJumpType] = useState("solo");
+  const [formation, setFormation] = useState("");
 
   // Auto-set organizer jump type when me loads
   useEffect(() => {
@@ -121,7 +130,7 @@ export default function JumpPage() {
         </div>
       )}
 
-      {/* Jump type selector */}
+      {/* Jump type & formation selector */}
       {me?.isOrganizer ? (
         <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-4">
           <div className="flex items-center gap-2">
@@ -131,19 +140,22 @@ export default function JumpPage() {
         </div>
       ) : (
         <div className="bg-white rounded-xl border p-4 mb-4">
-          <label className="block text-xs text-gray-500 mb-2">Jump Type</label>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="px-3 py-1.5 rounded-lg text-sm font-bold bg-blue-100 text-blue-800 border-2 border-blue-500">14k</span>
+          </div>
+          <label className="block text-xs text-gray-500 mb-2">Formation</label>
           <div className="flex gap-2 flex-wrap">
-            {JUMP_TYPES.map(t => (
+            {FORMATIONS.map(f => (
               <button
-                key={t.value}
-                onClick={() => setJumpType(t.value)}
+                key={f.value}
+                onClick={() => setFormation(f.value)}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium border-2 transition ${
-                  jumpType === t.value
+                  formation === f.value
                     ? "border-blue-500 bg-blue-50 text-blue-800"
                     : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
                 }`}
               >
-                {t.label}
+                {f.label}
               </button>
             ))}
           </div>
