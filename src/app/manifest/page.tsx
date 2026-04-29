@@ -758,7 +758,7 @@ export default function ManifestDashboard() {
           </div>
 
           <div className="flex-1 overflow-y-auto">
-            {[...checkedIn].filter(j => j.checkinType !== "tandem").sort((a, b) => `${a.lastName}${a.firstName}`.localeCompare(`${b.lastName}${b.firstName}`)).map((j) => {
+            {[...checkedIn].filter(j => j.checkinType !== "tandem" && !((j as Record<string, unknown>).ratings as string || "").includes("tandem")).sort((a, b) => `${a.lastName}${a.firstName}`.localeCompare(`${b.lastName}${b.firstName}`)).map((j) => {
               const onLoad = manifestedJumperIds.has(j.id);
               return (
                 <div
@@ -823,7 +823,7 @@ export default function ManifestDashboard() {
                 </div>
               );
             })}
-            {checkedIn.filter(j => j.checkinType !== "tandem").length === 0 && (
+            {checkedIn.filter(j => j.checkinType !== "tandem" && !((j as Record<string, unknown>).ratings as string || "").includes("tandem")).length === 0 && (
               <div className="text-center py-8 text-gray-400 text-xs px-4">
                 No jumpers checked in today.<br />Search above to check someone in.
               </div>

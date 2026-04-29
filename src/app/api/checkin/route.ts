@@ -45,6 +45,7 @@ export async function GET() {
         checkinType: (j.checkin_type as string) || "fun",
         paperworkComplete: (j.paperwork_complete as number) === 1,
         personType: (j.person_type as string) || "customer",
+        ratings: (j.ratings as string) || null,
       };
     });
 
