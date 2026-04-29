@@ -74,7 +74,14 @@ export async function GET(
       });
     }
 
+    // Only add jump entries that DON'T have a corresponding balance transaction
+    const txnDescs = new Set(transactions.map(t => t.description as string));
     for (const j of jumps) {
+      // Skip if there's already a block_debit or debit transaction for this load
+      const loadNum = j.load_number as number;
+      const hasTransaction = [...txnDescs].some(d => d.includes(`Load #${loadNum}`));
+      if (hasTransaction) continue;
+
       ledger.push({
         date: j.created_at as string,
         type: "jump",
