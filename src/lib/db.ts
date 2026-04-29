@@ -290,6 +290,10 @@ function migrate(db: Database.Database) {
   if (!cols3.map(c => c.name).includes("ratings")) {
     db.exec("ALTER TABLE jumpers ADD COLUMN ratings TEXT");
   }
+  if (!cols3.map(c => c.name).includes("emergency_contact_name")) {
+    db.exec("ALTER TABLE jumpers ADD COLUMN emergency_contact_name TEXT");
+    db.exec("ALTER TABLE jumpers ADD COLUMN emergency_contact_phone TEXT");
+  }
 
   // Add reserved_organizer_slots to aircraft
   const acCols = db.prepare("PRAGMA table_info(aircraft)").all() as Array<{ name: string }>;

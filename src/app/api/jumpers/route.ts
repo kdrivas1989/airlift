@@ -74,6 +74,8 @@ export async function GET(request: NextRequest) {
         canManifest: hasWaiver && !reserveExpired && !!j.reserve_pack_date && uspaActive,
         balance: j.balance || 0,
         jumpBlockRemaining: j.jump_block_remaining || 0,
+        emergencyContactName: (j as Record<string, unknown>).emergency_contact_name || null,
+        emergencyContactPhone: (j as Record<string, unknown>).emergency_contact_phone || null,
         personType: (j as Record<string, unknown>).person_type || "customer",
         ratings: (j as Record<string, unknown>).ratings || null,
         staffRole: (j as Record<string, unknown>).staff_role || null,

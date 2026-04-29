@@ -55,6 +55,8 @@ export async function PATCH(
     if (body.weight !== undefined) { fields.push("weight = ?"); values.push(body.weight); }
     if (body.reservePackDate !== undefined) { fields.push("reserve_pack_date = ?"); values.push(body.reservePackDate); }
     if (body.phone !== undefined) { fields.push("phone = ?"); values.push(body.phone); }
+    if (body.emergencyContactName !== undefined) { fields.push("emergency_contact_name = ?"); values.push(body.emergencyContactName || null); }
+    if (body.emergencyContactPhone !== undefined) { fields.push("emergency_contact_phone = ?"); values.push(body.emergencyContactPhone || null); }
     if (body.licenseLevel !== undefined) { fields.push("license_level = ?"); values.push(body.licenseLevel); }
     if (body.uspaNumber !== undefined) { fields.push("uspa_number = ?"); values.push(body.uspaNumber); }
     if (body.uspaStatus !== undefined) { fields.push("uspa_status = ?"); values.push(body.uspaStatus || null); }

@@ -22,7 +22,9 @@ interface Person {
   uspaActive: boolean;
   balance: number;
   jumpBlockRemaining: number;
-  personType: string; // comma-separated: customer,staff,ground
+  emergencyContactName: string | null;
+  emergencyContactPhone: string | null;
+  personType: string;
   staffRole: string | null;
   staffActive: number;
 }
@@ -214,6 +216,8 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
   const [uspaStatus, setUspaStatus] = useState(person.uspaStatus || "");
   const [uspaExpiry, setUspaExpiry] = useState(person.uspaExpiry || "");
   const [phone, setPhone] = useState(person.phone || "");
+  const [emergencyName, setEmergencyName] = useState(person.emergencyContactName || "");
+  const [emergencyPhone, setEmergencyPhone] = useState(person.emergencyContactPhone || "");
   const [reservePackDate, setReservePackDate] = useState(person.reservePackDate || "");
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState<"profile" | "balance" | "ledger">("profile");
@@ -259,6 +263,8 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
       uspaExpiry: uspaExpiry || null,
       uspaVerified: !!uspaStatus,
       phone: phone || null,
+      emergencyContactName: emergencyName || null,
+      emergencyContactPhone: emergencyPhone || null,
       reservePackDate: reservePackDate || null,
     };
     if (isStaff) {
@@ -451,6 +457,18 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
                 <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
                 <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
                   className="w-full border rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Emergency Contact</label>
+                  <input value={emergencyName} onChange={(e) => setEmergencyName(e.target.value)}
+                    placeholder="Name" className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Emergency Phone</label>
+                  <input type="tel" value={emergencyPhone} onChange={(e) => setEmergencyPhone(e.target.value)}
+                    placeholder="Phone" className="w-full border rounded-lg px-3 py-2 text-sm" />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">USPA #</label>
