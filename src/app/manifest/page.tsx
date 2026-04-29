@@ -650,7 +650,7 @@ export default function ManifestDashboard() {
                           </span>
                         </td>
                         <td className="text-center px-3 py-2 text-sm text-gray-600">{(entry.altitude / 1000).toFixed(1)}k</td>
-                        <td className="text-center px-3 py-2 text-sm text-gray-600">${(entry.ticketPrice / 100).toFixed(2)}</td>
+                        <td className="text-center px-3 py-2 text-sm text-gray-600">{entry.ticketPrice === 0 ? "—" : entry.jumpType === "organizer" ? "—" : "1 tkt"}</td>
                         {editable && (
                           <td className="text-center px-3 py-2">
                             <button onClick={() => removeJumper(entry.jumper.id)} className="text-red-500 hover:text-red-700 text-xs">&times;</button>
