@@ -470,6 +470,28 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
                 {!reservePackDate && <p className="text-xs text-red-500 mt-1">Required to manifest — must be set by staff</p>}
               </div>
 
+              {/* Waiver */}
+              <div className="flex items-center justify-between">
+                <label className="block text-sm font-medium text-gray-700">Waiver</label>
+                {person.hasWaiver ? (
+                  <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">Completed</span>
+                ) : (
+                  <button
+                    onClick={async () => {
+                      await fetch(`/api/waiver`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ jumperId: person.id, signatureData: "staff-confirmed", initials: `${person.firstName[0]}${person.lastName[0]}`, esignatureConsent: true }),
+                      });
+                      onSave();
+                    }}
+                    className="text-xs bg-blue-600 text-white px-3 py-1 rounded-full font-medium hover:bg-blue-700"
+                  >
+                    Mark Waiver Complete
+                  </button>
+                )}
+              </div>
+
               {/* Compliance */}
               <div className="pt-2 border-t">
                 <ComplianceBadge hasWaiver={person.hasWaiver} reserveExpired={person.reserveExpired}
