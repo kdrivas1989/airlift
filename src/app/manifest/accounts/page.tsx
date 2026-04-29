@@ -211,6 +211,8 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
   const [weight, setWeight] = useState(String(person.weight));
   const [licenseLevel, setLicenseLevel] = useState(person.licenseLevel);
   const [uspaNumber, setUspaNumber] = useState(person.uspaNumber || "");
+  const [uspaStatus, setUspaStatus] = useState(person.uspaStatus || "");
+  const [uspaExpiry, setUspaExpiry] = useState(person.uspaExpiry || "");
   const [phone, setPhone] = useState(person.phone || "");
   const [reservePackDate, setReservePackDate] = useState(person.reservePackDate || "");
   const [saving, setSaving] = useState(false);
@@ -253,6 +255,9 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
       weight: Number(weight),
       licenseLevel,
       uspaNumber: uspaNumber || null,
+      uspaStatus: uspaStatus || null,
+      uspaExpiry: uspaExpiry || null,
+      uspaVerified: !!uspaStatus,
       phone: phone || null,
       reservePackDate: reservePackDate || null,
     };
@@ -451,6 +456,32 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
                 <label className="block text-sm font-medium text-gray-700 mb-1">USPA #</label>
                 <input value={uspaNumber} onChange={(e) => setUspaNumber(e.target.value)}
                   className="w-full border rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">USPA Status</label>
+                  <select value={uspaStatus} onChange={(e) => setUspaStatus(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2 text-sm">
+                    <option value="">Not verified</option>
+                    <option value="Active">Active</option>
+                    <option value="Expired">Expired</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">USPA Expiry</label>
+                  <input type="date" value={uspaExpiry} onChange={(e) => setUspaExpiry(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2 text-sm" />
+                  {uspaExpiry && (() => {
+                    const exp = new Date(uspaExpiry);
+                    const daysLeft = Math.ceil((exp.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+                    const expired = daysLeft <= 0;
+                    return (
+                      <p className={`text-xs mt-1 ${expired ? "text-red-600 font-medium" : daysLeft <= 30 ? "text-orange-600" : "text-green-600"}`}>
+                        {expired ? `Expired ${Math.abs(daysLeft)} days ago` : `Expires in ${daysLeft} days`}
+                      </p>
+                    );
+                  })()}
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Reserve Pack Date</label>
