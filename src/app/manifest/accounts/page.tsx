@@ -27,7 +27,32 @@ interface Person {
   staffActive: number;
 }
 
-const TYPE_OPTIONS = ["customer", "staff", "ground", "organizer", "student", "videographer"] as const;
+const TYPE_GROUPS = {
+  Customer: [
+    "aff_student", "iad_student", "solo_student", "sport_jumper",
+    "sport_jumper_rental", "tandem", "team",
+  ],
+  Professional: [
+    "aff_instructor", "coach", "organizer", "ti", "ti_handcam",
+    "videographer", "wingsuit_instructor",
+  ],
+  "Non-Jumper": [
+    "dzso", "gca_loader", "load_master", "loader", "manifest",
+    "master_rigger", "packer", "pilot", "rigger", "video_editor",
+  ],
+} as const;
+
+const TYPE_LABELS: Record<string, string> = {
+  aff_student: "AFF Student", iad_student: "IAD Student", solo_student: "Solo Student",
+  sport_jumper: "Sport Jumper", sport_jumper_rental: "Sport Jumper - Renting Gear",
+  tandem: "Tandem", team: "Team",
+  aff_instructor: "AFF Instructor", coach: "Coach", organizer: "Organizer",
+  ti: "TI", ti_handcam: "TI Handcam Cleared", videographer: "Videographer",
+  wingsuit_instructor: "Wingsuit Instructor",
+  dzso: "DZSO/S&TA", gca_loader: "GCA/Loader", load_master: "Load Master",
+  loader: "Loader", manifest: "Manifest", master_rigger: "Master Rigger",
+  packer: "Packer", pilot: "Pilot", rigger: "Rigger", video_editor: "Video Editor",
+};
 
 export default function PeoplePage() {
   const [people, setPeople] = useState<Person[]>([]);
@@ -176,10 +201,9 @@ export default function PeoplePage() {
 }
 
 function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose: () => void; onSave: () => void }) {
-  const types = (person.personType || "customer").split(",");
-  const [isCustomer, setIsCustomer] = useState(types.includes("customer"));
-  const [isStaff, setIsStaff] = useState(types.includes("staff"));
-  const [isGround, setIsGround] = useState(types.includes("ground"));
+  const [selectedTypes, setSelectedTypes] = useState<Set<string>>(
+    new Set((person.personType || "sport_jumper").split(",").filter(Boolean))
+  );
   const [firstName, setFirstName] = useState(person.firstName);
   const [lastName, setLastName] = useState(person.lastName);
   const [staffRole, setStaffRole] = useState(person.staffRole || "operator");
@@ -213,19 +237,19 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
   const [totalJumps, setTotalJumps] = useState(0);
   const [ledgerLoading, setLedgerLoading] = useState(false);
 
+  const isStaff = [...selectedTypes].some(t =>
+    ["aff_instructor", "coach", "organizer", "ti", "ti_handcam", "videographer", "wingsuit_instructor"].includes(t)
+  );
+
   async function save() {
     setSaving(true);
-    const newTypes = [
-      ...(isCustomer ? ["customer"] : []),
-      ...(isStaff ? ["staff"] : []),
-      ...(isGround ? ["ground"] : []),
-    ];
-    if (newTypes.length === 0) newTypes.push("customer");
+    const types = Array.from(selectedTypes);
+    if (types.length === 0) types.push("sport_jumper");
 
     const body: Record<string, unknown> = {
       firstName,
       lastName,
-      personType: newTypes.join(","),
+      personType: types.join(","),
       weight: Number(weight),
       licenseLevel,
       uspaNumber: uspaNumber || null,
@@ -353,18 +377,26 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
               {/* Type checkboxes */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
-                <div className="flex gap-4">
-                  {TYPE_OPTIONS.map((t) => {
-                    const checked = t === "customer" ? isCustomer : t === "staff" ? isStaff : isGround;
-                    const setter = t === "customer" ? setIsCustomer : t === "staff" ? setIsStaff : setIsGround;
-                    return (
-                      <label key={t} className="flex items-center gap-1.5 text-sm">
-                        <input type="checkbox" checked={checked} onChange={(e) => setter(e.target.checked)}
-                          className="rounded border-gray-300" />
-                        <span className="capitalize">{t}</span>
-                      </label>
-                    );
-                  })}
+                <div className="grid grid-cols-3 gap-4">
+                  {Object.entries(TYPE_GROUPS).map(([group, options]) => (
+                    <div key={group}>
+                      <p className="text-xs font-bold text-gray-500 uppercase mb-1">{group}</p>
+                      <div className="space-y-0.5">
+                        {options.map(t => (
+                          <label key={t} className="flex items-center gap-1.5 text-xs cursor-pointer">
+                            <input type="checkbox" checked={selectedTypes.has(t)}
+                              onChange={(e) => {
+                                const s = new Set(selectedTypes);
+                                e.target.checked ? s.add(t) : s.delete(t);
+                                setSelectedTypes(s);
+                              }}
+                              className="rounded border-gray-300" />
+                            <span>{TYPE_LABELS[t] || t}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 
