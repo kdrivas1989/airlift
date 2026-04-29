@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { login, logout, getSession } from "@/lib/auth";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function GET() {
   try {
@@ -15,6 +16,11 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const rateLimitError = checkRateLimit(request);
+    if (rateLimitError) {
+      return NextResponse.json({ error: rateLimitError }, { status: 429 });
+    }
+
     const { email, password, rememberMe } = await request.json();
     if (!email || !password) {
       return NextResponse.json({ error: "Email and password required" }, { status: 400 });

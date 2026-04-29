@@ -4,7 +4,7 @@ import { requireAuth } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
   try {
-    await requireAuth();
+    const user = await requireAuth();
     const db = getDb();
     const statusParam = request.nextUrl.searchParams.get("status") || "open,boarding,in_flight";
     const dateParam = request.nextUrl.searchParams.get("date");
@@ -77,8 +77,11 @@ export async function GET(request: NextRequest) {
           jumpType: m.jump_type,
           altitude: m.altitude,
           exitOrder: m.exit_order,
-          ticketPrice: m.ticket_price,
-          paymentMethod: m.payment_method || "block",
+          // Only expose pricing/payment details to staff
+          ...(user.isStaff ? {
+            ticketPrice: m.ticket_price,
+            paymentMethod: m.payment_method || "block",
+          } : {}),
           pairedWith: m.paired_with ? { id: m.paired_with, firstName: m.paired_first, lastName: m.paired_last } : null,
         })),
       };
