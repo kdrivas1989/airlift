@@ -218,9 +218,8 @@ export default function JumpPage() {
               )}
 
               {/* Action */}
-              {onThis ? (() => {
-                const locked = load.departureTime && (new Date(load.departureTime).getTime() - Date.now()) <= 10 * 60000;
-                return locked ? (
+              {onThis ? (
+                load.departureTime && (new Date(load.departureTime).getTime() - Date.now()) <= 10 * 60000 ? (
                   <div className="w-full py-2.5 rounded-lg bg-gray-100 text-gray-500 font-medium text-sm text-center">
                     Locked — see manifest staff to remove
                   </div>
@@ -231,8 +230,7 @@ export default function JumpPage() {
                   >
                     Leave Load
                   </button>
-                );
-              })()
+                )
               ) : (
                 <button
                   onClick={() => joinLoad(load.id)}
