@@ -822,7 +822,7 @@ export default function ManifestDashboard() {
                       draggable={false}
                     >
                       {j.balance > 0 && <div className="text-green-700 font-medium">${(j.balance / 100).toFixed(2)}</div>}
-                      {j.jumpBlockRemaining > 0 && <div className="text-blue-700 font-medium">{j.jumpBlockRemaining} blk</div>}
+                      {j.jumpBlockRemaining > 0 && <div className="text-blue-700 font-medium">{j.jumpBlockRemaining} tkt</div>}
                       {j.balance === 0 && j.jumpBlockRemaining === 0 && <div className="text-gray-400">$0</div>}
                     </button>
                   </div>
@@ -1255,8 +1255,8 @@ function BalanceModal({
     e.preventDefault();
     const val = Number(amount);
     if (!val || val <= 0) return;
-    onAdd(jumper.id, "add_blocks", val, `Added ${Math.round(val)} jump block(s)`);
-    setMsg(`Added ${Math.round(val)} block(s)`);
+    onAdd(jumper.id, "add_blocks", val, `Added ${Math.round(val)} jump ticket(s)`);
+    setMsg(`Added ${Math.round(val)} ticket(s)`);
     setAmount("");
   }
 
@@ -1303,7 +1303,7 @@ function BalanceModal({
             <span className="font-medium text-green-700">${(jumper.balance / 100).toFixed(2)}</span>
           </div>
           <div>
-            <span className="text-gray-500">Blocks:</span>{" "}
+            <span className="text-gray-500">Tickets:</span>{" "}
             <span className="font-medium text-blue-700">{jumper.jumpBlockRemaining}</span>
           </div>
         </div>
@@ -1324,7 +1324,7 @@ function BalanceModal({
           </button>
           <button onClick={() => { setTab("blocks"); setClientSecret(null); }}
             className={`flex-1 py-1.5 text-xs font-medium ${tab === "blocks" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-700"}`}>
-            Blocks
+            Tickets
           </button>
         </div>
 
@@ -1413,9 +1413,9 @@ function BalanceModal({
         {tab === "blocks" && (
           <form onSubmit={addBlocks} className="space-y-3">
             <input type="number" min="1" step="1" value={amount} onChange={(e) => setAmount(e.target.value)}
-              placeholder="Number of blocks" className="w-full border rounded-lg px-3 py-2" autoFocus />
+              placeholder="Number of tickets" className="w-full border rounded-lg px-3 py-2" autoFocus />
             <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 text-sm">
-              Add {Math.round(Number(amount || 0))} Block(s)
+              Add {Math.round(Number(amount || 0))} Ticket(s)
             </button>
           </form>
         )}

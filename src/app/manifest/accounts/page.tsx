@@ -30,10 +30,10 @@ interface Person {
 const TYPE_GROUPS = {
   Customer: [
     "aff_student", "iad_student", "solo_student", "sport_jumper",
-    "sport_jumper_rental", "tandem", "team",
+    "sport_jumper_rental", "organizer", "tandem", "team",
   ],
   Professional: [
-    "aff_instructor", "coach", "organizer", "ti", "ti_handcam",
+    "aff_instructor", "coach", "ti", "ti_handcam",
     "videographer", "wingsuit_instructor",
   ],
   "Non-Jumper": [
@@ -238,7 +238,7 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
   const [ledgerLoading, setLedgerLoading] = useState(false);
 
   const isStaff = [...selectedTypes].some(t =>
-    ["aff_instructor", "coach", "organizer", "ti", "ti_handcam", "videographer", "wingsuit_instructor"].includes(t)
+    ["aff_instructor", "coach", "ti", "ti_handcam", "videographer", "wingsuit_instructor"].includes(t)
   );
 
   async function save() {
@@ -300,7 +300,7 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
       setCashBalance(data.balance);
       setBlockBalance(data.jumpBlockRemaining);
       setBlockAmount("");
-      setBalanceMsg(`Added ${Math.round(val)} block(s)`);
+      setBalanceMsg(`Added ${Math.round(val)} ticket(s)`);
     }
   }
 
@@ -323,7 +323,7 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
               <div className="text-lg font-bold text-green-700">${(cashBalance / 100).toFixed(2)}</div>
             </div>
             <div className="bg-blue-50 rounded-lg px-3 py-2 flex-1">
-              <div className="text-[10px] text-blue-600 uppercase font-medium">Jump Blocks</div>
+              <div className="text-[10px] text-blue-600 uppercase font-medium">Jump Tickets</div>
               <div className="text-lg font-bold text-blue-700">{blockBalance}</div>
             </div>
           </div>
@@ -500,12 +500,12 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
 
               {/* Add Jump Blocks */}
               <div className="p-4 border rounded-lg">
-                <h4 className="text-sm font-medium mb-2">Add Jump Blocks</h4>
+                <h4 className="text-sm font-medium mb-2">Add Jump Tickets</h4>
                 <div className="flex gap-2 mb-2">
                   <input type="number" min="1" step="1" value={blockAmount} onChange={(e) => setBlockAmount(e.target.value)}
-                    placeholder="# of blocks" className="flex-1 border rounded-lg px-3 py-2 text-sm" />
+                    placeholder="# of tickets" className="flex-1 border rounded-lg px-3 py-2 text-sm" />
                   <button onClick={addBlocks} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">
-                    Add Blocks
+                    Add Tickets
                   </button>
                 </div>
                 {/* Quick-add buttons */}
@@ -513,7 +513,7 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
                   {[5, 10, 20].map((n) => (
                     <button key={n} onClick={() => { setBlockAmount(String(n)); }}
                       className="flex-1 border rounded-lg py-1.5 text-xs hover:bg-gray-50 font-medium">
-                      {n} blocks
+                      {n} tickets
                     </button>
                   ))}
                 </div>
@@ -539,14 +539,14 @@ function EditPersonModal({ person, onClose, onSave }: { person: Person; onClose:
                           <th className="text-left px-3 py-2 font-medium text-gray-600">Date</th>
                           <th className="text-left px-3 py-2 font-medium text-gray-600">Description</th>
                           <th className="text-right px-3 py-2 font-medium text-gray-600">Cash</th>
-                          <th className="text-right px-3 py-2 font-medium text-gray-600">Blocks</th>
+                          <th className="text-right px-3 py-2 font-medium text-gray-600">Tickets</th>
                         </tr>
                       </thead>
                       <tbody>
                         {ledger.map((entry, i) => (
                           <tr key={i} className="border-b hover:bg-gray-50">
                             <td className="px-3 py-1.5 text-gray-500 whitespace-nowrap">
-                              {new Date(entry.date).toLocaleDateString()} {new Date(entry.date).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}
+                              {(() => { const d = new Date(entry.date); return `${d.getDate()} ${d.toLocaleString("en-US", {month:"short"})} ${String(d.getFullYear()).slice(2)} ${d.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}`; })()}
                             </td>
                             <td className="px-3 py-1.5">
                               <div className="flex items-center gap-1">

@@ -37,7 +37,7 @@ export async function POST(
     ).get(loadId) as { max_order: number };
 
     // Get ticket price
-    const load = db.prepare("SELECT default_altitude FROM loads WHERE id = ?").get(loadId) as { default_altitude: number };
+    const load = db.prepare("SELECT default_altitude, load_number FROM loads WHERE id = ?").get(loadId) as { default_altitude: number; load_number: number };
     const pricing = db.prepare(
       "SELECT price FROM jump_type_pricing WHERE jump_type = ? AND active = 1"
     ).get(jumpType) as { price: number } | undefined;
@@ -56,12 +56,12 @@ export async function POST(
         db.prepare("UPDATE jumpers SET jump_block_remaining = jump_block_remaining - 1 WHERE id = ?").run(jumperId);
         db.prepare(
           "INSERT INTO balance_transactions (jumper_id, amount, type, description) VALUES (?, ?, ?, ?)"
-        ).run(jumperId, -1, "block_debit", `Load #${loadId} - ${jumpType}`);
+        ).run(jumperId, -1, "block_debit", `Load #${load.load_number} - ${jumpType}`);
       } else if (jumperBalance.balance >= ticketPrice) {
         db.prepare("UPDATE jumpers SET balance = balance - ? WHERE id = ?").run(ticketPrice, jumperId);
         db.prepare(
           "INSERT INTO balance_transactions (jumper_id, amount, type, description) VALUES (?, ?, ?, ?)"
-        ).run(jumperId, -ticketPrice, "debit", `Load #${loadId} - ${jumpType}`);
+        ).run(jumperId, -ticketPrice, "debit", `Load #${load.load_number} - ${jumpType}`);
       }
     }
 
@@ -103,15 +103,15 @@ export async function DELETE(
     if (removedEntry.ticket_price > 0) {
       // Check if a block was deducted (look for recent block_debit)
       const blockDebit = db.prepare(
-        "SELECT id FROM balance_transactions WHERE jumper_id = ? AND type = 'block_debit' AND description LIKE ? ORDER BY created_at DESC LIMIT 1"
-      ).get(jumperId, `Load #${loadId}%`) as { id: number } | undefined;
+        "SELECT id FROM balance_transactions WHERE jumper_id = ? AND type = 'block_debit' AND (description LIKE ? OR description LIKE ?) ORDER BY created_at DESC LIMIT 1"
+      ).get(jumperId, `Load #${load.load_number}%`, `Load #${loadId}%`) as { id: number } | undefined;
       if (blockDebit) {
         db.prepare("UPDATE jumpers SET jump_block_remaining = jump_block_remaining + 1 WHERE id = ?").run(jumperId);
         db.prepare("DELETE FROM balance_transactions WHERE id = ?").run(blockDebit.id);
       } else {
         const cashDebit = db.prepare(
-          "SELECT id, amount FROM balance_transactions WHERE jumper_id = ? AND type = 'debit' AND description LIKE ? ORDER BY created_at DESC LIMIT 1"
-        ).get(jumperId, `Load #${loadId}%`) as { id: number; amount: number } | undefined;
+          "SELECT id, amount FROM balance_transactions WHERE jumper_id = ? AND type = 'debit' AND (description LIKE ? OR description LIKE ?) ORDER BY created_at DESC LIMIT 1"
+        ).get(jumperId, `Load #${load.load_number}%`, `Load #${loadId}%`) as { id: number; amount: number } | undefined;
         if (cashDebit) {
           db.prepare("UPDATE jumpers SET balance = balance + ? WHERE id = ?").run(Math.abs(cashDebit.amount), jumperId);
           db.prepare("DELETE FROM balance_transactions WHERE id = ?").run(cashDebit.id);

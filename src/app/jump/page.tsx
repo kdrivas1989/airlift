@@ -116,7 +116,7 @@ export default function JumpPage() {
             <h1 className="font-bold text-lg">{me.name}</h1>
             <div className="flex gap-3 text-sm">
               {me.balance > 0 && <span className="text-green-700 font-medium">${(me.balance / 100).toFixed(2)}</span>}
-              <span className="text-blue-700 font-medium">{me.jumpBlockRemaining} block{me.jumpBlockRemaining !== 1 ? "s" : ""}</span>
+              <span className="text-blue-700 font-medium">{me.jumpBlockRemaining} ticket{me.jumpBlockRemaining !== 1 ? "s" : ""}</span>
             </div>
           </div>
           {me.isStudent && (

@@ -6,3 +6,5 @@ data/
 *.db-wal
 .env
 .env.local
+ios/AirLIFTPay/.build/
+ios/AirLIFTPay/.build/

@@ -1,0 +1,32 @@
+name: AirLIFTPay
+options:
+  bundleIdPrefix: com.kdevolution
+  deploymentTarget:
+    iOS: "16.4"
+  xcodeVersion: "16.0"
+
+packages:
+  StripeTerminal:
+    url: https://github.com/stripe/stripe-terminal-ios
+    from: "4.0.0"
+
+targets:
+  AirLIFTPay:
+    type: application
+    platform: iOS
+    sources:
+      - AirLIFTPay
+    dependencies:
+      - package: StripeTerminal
+        product: StripeTerminal
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.kdevolution.airliftpay
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: 1
+        INFOPLIST_KEY_NSLocalNetworkUsageDescription: "Required for Stripe Terminal"
+        INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription: "Required for card reader"
+        INFOPLIST_KEY_NFCReaderUsageDescription: "Accept contactless payments"
+        INFOPLIST_KEY_UILaunchScreen_Generation: true
+    entitlements:
+      path: AirLIFTPay/AirLIFTPay.entitlements
